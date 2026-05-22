@@ -3,7 +3,6 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
-// Menggunakan font Inter sebagai standar UI
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
