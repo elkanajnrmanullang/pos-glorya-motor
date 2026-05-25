@@ -1,11 +1,11 @@
-"use client"; // Wajib ditambahkan karena grafik recharts membutuhkan client-side rendering
+"use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts'
 
-// Data Dummy untuk testing UI (Nanti diganti query dari database)
+// Data Dummy untuk testing UI 
 const dataPendapatan = [
   { name: 'Sen', total: 1200000 },
   { name: 'Sel', total: 2100000 },
@@ -76,7 +76,7 @@ export default function OwnerDashboard() {
 
       {/* Bagian Grafik */}
       <div className="grid gap-6 lg:grid-cols-7">
-        {/* Grafik Pendapatan Mingguan (Lebar 4 kolom) */}
+        {/* Grafik Pendapatan Mingguan */}
         <Card className="lg:col-span-4 border border-[#DAF1DE] shadow-sm bg-white">
           <CardHeader>
             <CardTitle className="text-[#051F20] text-sm font-semibold">Tren Pendapatan (Minggu Ini)</CardTitle>
@@ -97,7 +97,7 @@ export default function OwnerDashboard() {
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#051F20', borderRadius: '8px', border: 'none', color: '#DAF1DE' }}
                     itemStyle={{ color: '#8EB69B' }}
-                    formatter={(value: number) => [`Rp ${value.toLocaleString('id-ID')}`, 'Pendapatan']}
+                    formatter={(value: any) => [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']}
                   />
                   <Line type="monotone" dataKey="total" stroke="#235347" strokeWidth={3} dot={{ r: 4, fill: '#051F20' }} activeDot={{ r: 6, fill: '#8EB69B' }} />
                 </LineChart>
@@ -106,7 +106,7 @@ export default function OwnerDashboard() {
           </CardContent>
         </Card>
 
-        {/* Grafik Kategori Servis (Lebar 3 kolom) */}
+        {/* Grafik Kategori Servis */}
         <Card className="lg:col-span-3 border border-[#DAF1DE] shadow-sm bg-white">
           <CardHeader>
             <CardTitle className="text-[#051F20] text-sm font-semibold">Distribusi Kategori Servis</CardTitle>
