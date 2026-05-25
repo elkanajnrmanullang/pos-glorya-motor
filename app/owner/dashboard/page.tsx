@@ -59,7 +59,8 @@ export default function OwnerDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-light text-[#051F20] tracking-tight">12</div>
-            <p className="text-xs text-[#235347] font-medium mt-2 text-red-500">Item butuh restock segera</p>
+            {/* FIX: Menghapus text-[#235347] agar tidak bentrok dengan text-red-500 */}
+            <p className="text-xs font-medium mt-2 text-red-500">Item butuh restock segera</p>
           </CardContent>
         </Card>
 
@@ -97,7 +98,7 @@ export default function OwnerDashboard() {
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#051F20', borderRadius: '8px', border: 'none', color: '#DAF1DE' }}
                     itemStyle={{ color: '#8EB69B' }}
-                    formatter={(value: any) => [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']}
+                    formatter={(value: unknown) => [`Rp ${Number(value).toLocaleString('id-ID')}`, 'Pendapatan']}
                   />
                   <Line type="monotone" dataKey="total" stroke="#235347" strokeWidth={3} dot={{ r: 4, fill: '#051F20' }} activeDot={{ r: 6, fill: '#8EB69B' }} />
                 </LineChart>
