@@ -187,7 +187,6 @@ export default function StokPage() {
                       <TableCell className="font-medium text-[#051F20]">{item.nama}</TableCell>
                       <TableCell className="text-[#163832]">Rp {item.harga_jual.toLocaleString('id-ID')}</TableCell>
                       <TableCell className="text-center font-bold">{item.stok_fisik}</TableCell>
-                      {/* Stok tersedia diambil otomatis dari Database (stok_fisik - stok_reserved) */}
                       <TableCell className="text-center text-green-700 font-bold">{item.stok_tersedia}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
