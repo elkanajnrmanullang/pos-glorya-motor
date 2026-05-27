@@ -1,11 +1,37 @@
+"use client"
+
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, Loader2 } from "lucide-react"
+import { BukaKasirDialog } from "@/components/kasir/BukaKasirDialog"
 
 export default function KasirDashboard() {
+  const [kasirId, setKasirId] = useState<string | null>(null)
+  const supabase = createClient()
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) setKasirId(user.id)
+    }
+    getUser()
+  }, [supabase])
+
+  if (!kasirId) {
+    return (
+      <div className="flex w-full justify-center py-20 text-[#8EB69B]">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    )
+  }
+
   return (
-    <div className="w-full space-y-8"> {/* <-- max-w-5xl dihapus, diganti w-full */}
+    <div className="w-full space-y-8 relative">
+      <BukaKasirDialog kasirId={kasirId} />
+
       <div>
         <h1 className="text-2xl font-light text-[#051F20] tracking-tight">Dashboard <span className="font-bold">Kasir</span></h1>
         <p className="text-[#235347] mt-1 text-sm font-medium">Ringkasan operasional dan antrean hari ini.</p>

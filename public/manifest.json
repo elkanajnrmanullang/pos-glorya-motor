@@ -1,0 +1,16 @@
+{
+  "name": "Glorya Motor POS",
+  "short_name": "GloryaPOS",
+  "description": "Sistem Kasir dan Bengkel Glorya Motor",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFCFB",
+  "theme_color": "#051F20",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}

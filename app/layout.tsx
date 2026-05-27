@@ -1,26 +1,31 @@
-import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { Toaster } from "@/components/ui/sonner"; 
+// app/layout.tsx
+import type { Metadata } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { Providers } from "@/components/providers"
+import { Toaster } from "@/components/ui/sonner" 
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Glorya Motor",
-  description: "Sistem Manajemen Bengkel & Kasir Terintegrasi",
-};
+  title: "Glorya Motor POS",
+  description: "Sistem Manajemen Bengkel & Kasir",
+  manifest: "/manifest.json", // Setup PWA
+}
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode;
+  children: React.ReactNode
 }>) {
   return (
     <html lang="id">
       <body className={inter.className}>
-        {children}
-        <Toaster position="top-right" richColors />
+        <Providers>
+          {children}
+          <Toaster position="top-center" richColors />
+        </Providers>
       </body>
     </html>
-  );
+  )
 }

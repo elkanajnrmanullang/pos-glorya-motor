@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { Package, PenTool, LayoutDashboard, LogOut } from "lucide-react"
+import { Package, PenTool, LayoutDashboard, LogOut, Users, Boxes } from "lucide-react"
+import { logoutAction } from "@/app/(auth)/login/actions"
 
 export default function KasirLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,13 +26,23 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
             <Package className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
             <span className="font-medium text-sm">Jual Langsung</span>
           </Link>
+          <Link href="/kasir/customers" className="flex items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-[#163832] hover:text-white transition-all duration-300 group">
+            <Users className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
+            <span className="font-medium text-sm">Data Pelanggan</span>
+          </Link>
+          <Link href="/kasir/stok" className="flex items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-[#163832] hover:text-white transition-all duration-300 group">
+            <Boxes className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
+            <span className="font-medium text-sm">Stok & Barang</span>
+          </Link>
         </nav>
 
         <div className="p-4 border-t border-[#163832]">
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-red-900/30 hover:text-red-400 transition-all duration-300 group">
-            <LogOut className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
-            <span className="font-medium text-sm">Keluar</span>
-          </button>
+          <form action={logoutAction} className="w-full">
+            <button type="submit" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-red-900/30 hover:text-red-400 transition-all duration-300 group">
+              <LogOut className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+              <span className="font-medium text-sm">Keluar</span>
+            </button>
+          </form>
         </div>
       </aside>
 

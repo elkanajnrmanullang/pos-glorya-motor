@@ -1,5 +1,6 @@
 import Link from "next/link"
 import { LayoutDashboard, LineChart, Users, LogOut } from "lucide-react"
+import { logoutAction } from "@/app/(auth)/login/actions"
 
 export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -28,10 +29,12 @@ export default function OwnerLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="p-4 border-t border-[#163832]">
-          <button className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-red-900/30 hover:text-red-400 transition-all duration-300 group">
-            <LogOut className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
-            <span className="font-medium text-sm">Keluar</span>
-          </button>
+          <form action={logoutAction} className="w-full">
+            <button type="submit" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-red-900/30 hover:text-red-400 transition-all duration-300 group">
+              <LogOut className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
+              <span className="font-medium text-sm">Keluar</span>
+            </button>
+          </form>
         </div>
       </aside>
 

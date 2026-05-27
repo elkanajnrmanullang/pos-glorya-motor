@@ -1,13 +1,13 @@
+// app/(auth)/login/page.tsx
 import { loginAction } from './actions'
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { SubmitButton } from "@/components/auth/SubmitButton"
 
 export default function LoginPage({ searchParams }: { searchParams: { error?: string } }) {
   return (
     <div className="flex min-h-screen w-full bg-[#FAFCFB] font-sans selection:bg-[#8EB69B] selection:text-[#051F20]">
       {/* Sisi Kiri: Branding & Visual Elegan */}
       <div className="hidden lg:flex w-1/2 bg-[#051F20] flex-col justify-between p-12 relative overflow-hidden">
-        {/* Efek Gradasi/Cahaya Halus */}
         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#163832] rounded-full blur-[120px] opacity-60 -translate-y-1/2 translate-x-1/3 pointer-events-none" />
         <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-[#0B2B26] rounded-full blur-[100px] opacity-80 translate-y-1/3 -translate-x-1/4 pointer-events-none" />
 
@@ -59,14 +59,11 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
             </div>
 
             {searchParams?.error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg font-medium text-center">
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg font-medium text-center animate-in fade-in zoom-in duration-300">
                 {searchParams.error}
               </div>
             )}
-
-            <Button type="submit" className="w-full h-12 text-sm font-bold tracking-widest bg-[#235347] hover:bg-[#051F20] text-white hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 rounded-lg">
-              MASUK KE SISTEM
-            </Button>
+            <SubmitButton />
           </form>
         </div>
       </div>

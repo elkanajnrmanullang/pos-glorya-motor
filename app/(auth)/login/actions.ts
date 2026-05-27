@@ -15,11 +15,11 @@ export async function loginAction(formData: FormData) {
   })
 
   if (authError) {
-    redirect(`/login?error=Auth Error: ${authError.message}`)
+    redirect(`/login?error=Email atau kata sandi yang Anda masukkan salah.`)
   }
   
   if (!authData.user) {
-    redirect('/login?error=Sistem gagal memuat data user')
+    redirect('/login?error=Sistem sedang sibuk. Silakan coba beberapa saat lagi.')
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -29,14 +29,20 @@ export async function loginAction(formData: FormData) {
     .single()
 
   if (profileError || !profile) {
-    redirect(`/login?error=Database Error: ${profileError?.message || 'Profil tidak ditemukan'}`)
+    redirect(`/login?error=Akun Anda belum memiliki akses peran. Silakan lapor ke Owner.`)
   }
 
-revalidatePath('/', 'layout')
+  revalidatePath('/', 'layout')
   
   if (profile.role === 'owner') redirect('/owner/dashboard')
   if (profile.role === 'kasir') redirect('/kasir/dashboard')
   if (profile.role === 'mekanik') redirect('/mekanik/dashboard')
   
   redirect('/')
+}
+
+export async function logoutAction() {
+  const supabase = createClient()
+  await supabase.auth.signOut()
+  redirect('/login')
 }
