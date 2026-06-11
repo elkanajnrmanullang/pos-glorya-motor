@@ -1,54 +1,106 @@
-import Link from "next/link"
-import { Package, PenTool, LayoutDashboard, LogOut, Users, Boxes } from "lucide-react"
-import { logoutAction } from "@/app/(auth)/login/actions"
+import { ReactNode } from 'react'
+import Link from 'next/link'
+import { BukaKasirDialog } from '@/components/kasir/BukaKasirDialog'
+import { 
+  LayoutDashboard, 
+  FileText, 
+  Wrench, 
+  ShoppingBag, 
+  PackageSearch, 
+  Users, 
+  LogOut 
+} from 'lucide-react'
 
-export default function KasirLayout({ children }: { children: React.ReactNode }) {
+export default function KasirLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen w-full flex-col bg-[#FAFCFB] lg:flex-row font-sans">
-      <aside className="w-full lg:w-64 bg-[#051F20] flex flex-col transition-all">
-        <div className="p-8 flex flex-col items-center border-b border-[#163832]">
-          <div className="text-xl tracking-[0.2em] font-light text-white">
-            GLORYA<span className="font-bold text-[#8EB69B]">MOTOR</span>
-          </div>
-          <div className="text-[10px] mt-2 text-[#8EB69B] tracking-widest uppercase font-bold">Panel Kasir</div>
+    <div className="flex h-screen w-full bg-slate-50 overflow-hidden">
+      {/* Sidebar Navigation */}
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-slate-200 flex flex-col">
+        <div className="p-6 border-b border-slate-100">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Glorya Motor</h1>
+          <p className="text-sm font-medium text-slate-500 mt-1">Panel Kasir</p>
         </div>
-        
-        <nav className="flex-1 p-4 space-y-1">
-          <Link href="/kasir/dashboard" className="flex items-center gap-3 rounded-lg px-4 py-3 text-white bg-[#163832] transition-all duration-300 group">
-            <LayoutDashboard className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-            <span className="font-medium text-sm">Dashboard</span>
+
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+          <Link 
+            href="/kasir/dashboard" 
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <LayoutDashboard className="w-5 h-5 text-slate-500" />
+            Dashboard
           </Link>
-          <Link href="/kasir/tiket/buat" className="flex items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-[#163832] hover:text-white transition-all duration-300 group">
-            <PenTool className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-            <span className="font-medium text-sm">Buat Tiket</span>
+          
+          <div className="pt-4 pb-2">
+            <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Transaksi
+            </p>
+          </div>
+          
+          <Link 
+            href="/kasir/tiket/buat" 
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <Wrench className="w-5 h-5 text-slate-500" />
+            Buat Tiket Servis
           </Link>
-          <Link href="/kasir/takeaway" className="flex items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-[#163832] hover:text-white transition-all duration-300 group">
-            <Package className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-            <span className="font-medium text-sm">Jual Langsung</span>
+          <Link 
+            href="/kasir/takeaway" 
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <ShoppingBag className="w-5 h-5 text-slate-500" />
+            Takeaway POS
           </Link>
-          <Link href="/kasir/customers" className="flex items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-[#163832] hover:text-white transition-all duration-300 group">
-            <Users className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-            <span className="font-medium text-sm">Data Pelanggan</span>
+          <Link 
+            href="/kasir/tiket/aktif" 
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <FileText className="w-5 h-5 text-slate-500" />
+            Antrean Aktif
           </Link>
-          <Link href="/kasir/stok" className="flex items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-[#163832] hover:text-white transition-all duration-300 group">
-            <Boxes className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-            <span className="font-medium text-sm">Stok & Barang</span>
+
+          <div className="pt-4 pb-2">
+            <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              Manajemen Data
+            </p>
+          </div>
+
+          <Link 
+            href="/kasir/stok" 
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <PackageSearch className="w-5 h-5 text-slate-500" />
+            Stok & Barang
+          </Link>
+          <Link 
+            href="/kasir/customers" 
+            className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+          >
+            <Users className="w-5 h-5 text-slate-500" />
+            Data Customer
           </Link>
         </nav>
 
-        <div className="p-4 border-t border-[#163832]">
-          <form action={logoutAction} className="w-full">
-            <button type="submit" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-red-900/30 hover:text-red-400 transition-all duration-300 group">
-              <LogOut className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
-              <span className="font-medium text-sm">Keluar</span>
+        {/* Bottom Section (Tutup Kasir & Logout) */}
+        <div className="p-4 border-t border-slate-100 space-y-2">
+          <form action="/auth/signout" method="post">
+            <button 
+              type="submit" 
+              className="flex w-full items-center gap-3 px-3 py-2.5 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              Keluar Sistem
             </button>
           </form>
         </div>
       </aside>
 
-      <main className="flex-1 p-6 lg:p-10">
-        {children}
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col relative overflow-y-auto w-full">
+        <div className="p-8 w-full max-w-7xl mx-auto flex-1">
+          {children}
+        </div>
       </main>
+      <BukaKasirDialog />
     </div>
   )
 }
