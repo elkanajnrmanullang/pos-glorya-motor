@@ -102,7 +102,7 @@ export default function BuatTiketPage() {
         <Card className="bg-[#FAF7F2] border-[#E6DFD3] overflow-visible">
           <CardHeader className="border-b border-[#E6DFD3]/60 bg-white/50 pb-4">
             <CardTitle className="text-base font-bold text-[#051F20] flex items-center gap-2">
-              <User className="w-5 h-5 text-[#235347]" /> Langkah 1: Pilih Pelanggan
+              <User className="w-5 h-5 text-[#235347]" /> Pilih Pelanggan
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
@@ -117,7 +117,7 @@ export default function BuatTiketPage() {
         <Card className={`bg-[#FAF7F2] border-[#E6DFD3] transition-opacity ${!selectedCustomer ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
           <CardHeader className="border-b border-[#E6DFD3]/60 bg-white/50 pb-4">
             <CardTitle className="text-base font-bold text-[#051F20] flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-[#235347]" /> Langkah 2: Data Motor & Tindakan
+              <Wrench className="w-5 h-5 text-[#235347]" /> Data Motor & Tindakan
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6 space-y-6">

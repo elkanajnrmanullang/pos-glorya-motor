@@ -1,98 +1,139 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-export type TBarang = {
-  id?: string;
-  nama: string;
-  harga_beli: number;
-  harga_jual: number;
-  stok_fisik: number;
-  stok_minimum: number;
+// INTERFACE BARANG
+export interface Barang {
+  id: string
+  nama: string
+  barcode: string | null
+  harga_beli: number
+  harga_jual: number
+  stok_fisik: number
+  stok_reserved: number
+  stok_minimum: number
+  stok_tersedia: number
+  aktif: boolean
 }
 
+// INTERFACE RIWAYAT
+export interface RiwayatBarang {
+  id: string
+  barang_id: string
+  keterangan: string
+  waktu: string
+  barang?: {
+    nama: string
+  }
+}
+
+// HOOK RIWAYAT GLOBAL
+export function useRiwayatBarang() {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['riwayat-barang-global'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('riwayat_barang')
+        .select('*, barang(nama)')
+        .order('waktu', { ascending: false })
+        .limit(30)
+      if (error) throw error
+      return data as RiwayatBarang[]
+    }
+  })
+}
+
+// HOOK UTAMA BARANG
 export function useBarang() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
-  // Ambil data barang
-  const { data: barang, isLoading: isBarangLoading } = useQuery({
+  // QUERY FETCH BARANG
+  const query = useQuery({
     queryKey: ['barang'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('barang')
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('nama', { ascending: true })
 
       if (error) throw error
-      return data
+      return data as Barang[]
     }
   })
 
-  // Tambah Barang Baru
-  const addBarangMutation = useMutation({
-    mutationFn: async (newBarang: TBarang) => {
+  // MUTATION CREATE BARANG
+  const createMutation = useMutation({
+    mutationFn: async (payload: Omit<Barang, 'id' | 'stok_reserved' | 'stok_tersedia' | 'aktif'>) => {
       const { data, error } = await supabase
         .from('barang')
         .insert({
-          nama: newBarang.nama,
-          harga_beli: newBarang.harga_beli,
-          harga_jual: newBarang.harga_jual,
-          stok_fisik: newBarang.stok_fisik,
-          stok_minimum: newBarang.stok_minimum
+          nama: payload.nama,
+          barcode: payload.barcode || null,
+          harga_beli: payload.harga_beli,
+          harga_jual: payload.harga_jual,
+          stok_fisik: payload.stok_fisik,
+          stok_minimum: payload.stok_minimum
         })
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        if (error.code === '23505') throw new Error('Nama barang sudah ada (mirip) atau Barcode terdaftar!')
+        throw error
+      }
       return data
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['barang'] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['barang'] })
+      queryClient.invalidateQueries({ queryKey: ['riwayat-barang-global'] })
+    }
   })
 
-  // Ubah Data Barang
-  const updateBarangMutation = useMutation({
-    mutationFn: async (updatedBarang: TBarang) => {
-      const { data, error } = await supabase
-        .from('barang')
-        .update({
-          nama: updatedBarang.nama,
-          harga_beli: updatedBarang.harga_beli,
-          harga_jual: updatedBarang.harga_jual,
-          stok_fisik: updatedBarang.stok_fisik,
-          stok_minimum: updatedBarang.stok_minimum,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', updatedBarang.id)
-        .select()
-        .single()
+  // MUTATION UPDATE BARANG
+  const updateMutation = useMutation({
+    mutationFn: async (payload: Partial<Barang> & { id: string }) => {
+      const { error } = await supabase.rpc('update_barang_aman', {
+        p_id: payload.id,
+        p_nama: payload.nama,
+        p_barcode: payload.barcode || null,
+        p_harga_beli: payload.harga_beli,
+        p_harga_jual: payload.harga_jual,
+        p_stok_fisik: payload.stok_fisik,
+        p_stok_minimum: payload.stok_minimum
+      })
 
-      if (error) throw error
-      return data
+      if (error) {
+        if (error.code === '23505') throw new Error('Nama barang sudah ada (mirip) atau Barcode terdaftar!')
+        throw error
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['barang'] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['barang'] })
+      queryClient.invalidateQueries({ queryKey: ['riwayat-barang-global'] })
+    }
   })
 
-  // Hapus Barang
-  const deleteBarangMutation = useMutation({
+  // MUTATION DELETE BARANG
+  const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('barang')
-        .delete()
-        .eq('id', id)
-
+      const { error } = await supabase.from('barang').delete().eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['barang'] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['barang'] })
+      queryClient.invalidateQueries({ queryKey: ['riwayat-barang-global'] })
+    }
   })
 
   return {
-    barang,
-    isBarangLoading,
-    addBarang: addBarangMutation.mutateAsync,
-    isAddingBarang: addBarangMutation.isPending,
-    updateBarang: updateBarangMutation.mutateAsync,
-    isUpdatingBarang: updateBarangMutation.isPending,
-    deleteBarang: deleteBarangMutation.mutateAsync,
-    isDeletingBarang: deleteBarangMutation.isPending
+    barang: query.data,
+    isBarangLoading: query.isLoading,
+    addBarang: createMutation.mutateAsync,
+    isAddingBarang: createMutation.isPending,
+    updateBarang: updateMutation.mutateAsync,
+    isUpdatingBarang: updateMutation.isPending,
+    deleteBarang: deleteMutation.mutateAsync,
+    isDeletingBarang: deleteMutation.isPending
   }
 }

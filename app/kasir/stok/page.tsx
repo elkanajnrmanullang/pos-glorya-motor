@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { useBarang, TBarang } from '@/hooks/use-barang'
+import { useBarang, useRiwayatBarang } from '@/hooks/use-barang'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Boxes, Search, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react'
+import { Plus, Boxes, Search, Loader2, Edit2, Trash2, AlertCircle, History, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function StokPage() {
@@ -18,15 +18,23 @@ export default function StokPage() {
     deleteBarang, isDeletingBarang
   } = useBarang()
   
+  const { data: riwayat, isLoading: isRiwayatLoading } = useRiwayatBarang()
+
   const [search, setSearch] = useState('')
   const [isOpen, setIsOpen] = useState(false)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   
-  const initialFormState: TBarang = { nama: '', harga_beli: 0, harga_jual: 0, stok_fisik: 0, stok_minimum: 5 }
-  const [formData, setFormData] = useState<TBarang>(initialFormState)
+  const initialFormState = { id: '', nama: '', barcode: '', harga_beli: 0, harga_jual: 0, stok_fisik: 0, stok_minimum: 5 }
+  const [formData, setFormData] = useState(initialFormState)
 
-  const filteredBarang = barang?.filter(b => b.nama.toLowerCase().includes(search.toLowerCase()))
+  // PAGINATION LOGIC
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 8
+  
+  const filteredBarang = barang?.filter(b => b.nama.toLowerCase().includes(search.toLowerCase())) || []
+  const totalPages = Math.ceil(filteredBarang.length / itemsPerPage)
+  const paginatedBarang = filteredBarang.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
 
   const handleOpenCreate = () => {
     setFormData(initialFormState)
@@ -37,6 +45,7 @@ export default function StokPage() {
     setFormData({
       id: item.id,
       nama: item.nama,
+      barcode: item.barcode || '',
       harga_beli: item.harga_beli,
       harga_jual: item.harga_jual,
       stok_fisik: item.stok_fisik,
@@ -67,8 +76,8 @@ export default function StokPage() {
         toast.success('Barang baru berhasil ditambahkan ke katalog!')
       }
       setIsOpen(false)
-    } catch (error) {
-      toast.error('Gagal menyimpan data barang. Silakan coba kembali.')
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal menyimpan data barang.')
     }
   }
 
@@ -79,13 +88,13 @@ export default function StokPage() {
       toast.success('Barang telah dihapus dari sistem.')
       setIsDeleteOpen(false)
       setSelectedId(null)
-    } catch (error) {
+    } catch (error: any) {
       toast.error('Gagal menghapus barang. Mungkin barang ini sedang digunakan di transaksi.')
     }
   }
 
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-light text-[#051F20] tracking-tight">Katalog <span className="font-bold">Barang</span></h1>
@@ -96,6 +105,7 @@ export default function StokPage() {
           <Plus className="w-4 h-4 mr-2" /> TAMBAH BARANG
         </Button>
 
+        {/* MODAL FORM BARANG */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <DialogContent className="sm:max-w-xl">
             <DialogHeader>
@@ -141,6 +151,7 @@ export default function StokPage() {
         </Dialog>
       </div>
 
+      {/* MODAL HAPUS */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -156,50 +167,126 @@ export default function StokPage() {
         </DialogContent>
       </Dialog>
 
+      {/* SECTION DAFTAR STOK */}
       <Card className="border-[#DAF1DE] shadow-sm">
-        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-sm font-semibold flex items-center text-[#051F20]"><Boxes className="w-4 h-4 mr-2 text-[#8EB69B]" /> Daftar Stok</CardTitle>
-          <div className="relative w-64">
+        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <CardTitle className="text-sm font-semibold flex items-center text-[#051F20]"><Boxes className="w-4 h-4 mr-2 text-[#8EB69B]" /> Daftar Stok Gudang</CardTitle>
+          <div className="relative w-full sm:w-64">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <Input placeholder="Cari nama barang..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
+            <Input 
+              placeholder="Cari nama barang..." 
+              value={search} 
+              onChange={e => {
+                setSearch(e.target.value)
+                setCurrentPage(1)
+              }} 
+              className="pl-9 h-9 text-sm" 
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isBarangLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#8EB69B]" /></div>
           ) : (
-            <Table>
-              <TableHeader className="bg-gray-50/50">
-                <TableRow>
-                  <TableHead className="font-semibold text-[#163832]">Nama Barang</TableHead>
-                  <TableHead className="font-semibold text-[#163832]">Harga Jual</TableHead>
-                  <TableHead className="font-semibold text-[#163832] text-center">Stok Fisik</TableHead>
-                  <TableHead className="font-semibold text-[#163832] text-center">Tersedia (Bisa Dijual)</TableHead>
-                  <TableHead className="font-semibold text-[#163832] text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredBarang?.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-gray-500">Katalog kosong atau barang tidak ditemukan.</TableCell></TableRow>
-                ) : (
-                  filteredBarang?.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium text-[#051F20]">{item.nama}</TableCell>
-                      <TableCell className="text-[#163832]">Rp {item.harga_jual.toLocaleString('id-ID')}</TableCell>
-                      <TableCell className="text-center font-bold">{item.stok_fisik}</TableCell>
-                      <TableCell className="text-center text-green-700 font-bold">{item.stok_tersedia}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(item)} className="h-8 w-8 text-blue-600"><Edit2 className="w-4 h-4" /></Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleOpenDelete(item.id)} className="h-8 w-8 text-red-600"><Trash2 className="w-4 h-4" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader className="bg-gray-50/50">
+                  <TableRow>
+                    <TableHead className="font-semibold text-[#163832]">Nama Barang</TableHead>
+                    <TableHead className="font-semibold text-[#163832]">Harga Jual</TableHead>
+                    <TableHead className="font-semibold text-[#163832] text-center">Stok Fisik</TableHead>
+                    <TableHead className="font-semibold text-[#163832] text-center">Tersedia</TableHead>
+                    <TableHead className="font-semibold text-[#163832] text-right">Aksi</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paginatedBarang.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="text-center py-8 text-gray-500">Barang tidak ditemukan.</TableCell></TableRow>
+                  ) : (
+                    paginatedBarang.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium text-[#051F20]">{item.nama}</TableCell>
+                        <TableCell className="text-[#163832]">Rp {item.harga_jual.toLocaleString('id-ID')}</TableCell>
+                        <TableCell className="text-center font-bold">{item.stok_fisik}</TableCell>
+                        <TableCell className="text-center text-green-700 font-bold">{item.stok_tersedia}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button title="Edit Data" variant="ghost" size="icon" onClick={() => handleOpenEdit(item)} className="h-8 w-8 text-blue-600 hover:bg-blue-50 hover:text-blue-700"><Edit2 className="w-4 h-4" /></Button>
+                            <Button title="Hapus" variant="ghost" size="icon" onClick={() => handleOpenDelete(item.id)} className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700"><Trash2 className="w-4 h-4" /></Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           )}
+        </CardContent>
+        
+        {/* PAGINATION CONTROLS */}
+        {!isBarangLoading && filteredBarang.length > 0 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50/30">
+            <p className="text-xs text-gray-500 font-medium">
+              Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredBarang.length)} dari {filteredBarang.length} data
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+                disabled={currentPage === 1}
+                className="h-8 text-xs border-[#8EB69B]/40 text-[#163832]"
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" /> Sebelumnya
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+                disabled={currentPage === totalPages}
+                className="h-8 text-xs border-[#8EB69B]/40 text-[#163832]"
+              >
+                Selanjutnya <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* SECTION RIWAYAT PERUBAHAN */}
+      <Card className="border-[#DAF1DE] shadow-sm">
+        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 bg-[#FAF7F2]/50">
+          <CardTitle className="text-sm font-semibold flex items-center text-[#051F20]">
+            <History className="w-4 h-4 mr-2 text-[#8EB69B]" /> Riwayat Penyesuaian Terakhir
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="max-h-[300px] overflow-y-auto">
+            {isRiwayatLoading ? (
+              <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#8EB69B]" /></div>
+            ) : riwayat?.length === 0 ? (
+              <p className="text-center text-sm text-gray-500 py-8">Belum ada aktivitas pembaruan stok atau harga.</p>
+            ) : (
+              <ul className="divide-y divide-[#E6DFD3]">
+                {riwayat?.map((log) => (
+                  <li key={log.id} className="p-4 hover:bg-[#FAF7F2]/40 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-1.5">
+                      <span className="text-sm font-bold text-[#051F20]">
+                        {log.barang?.nama || 'Barang Dihapus'}
+                      </span>
+                      <span className="text-xs font-semibold text-[#8EB69B] whitespace-nowrap">
+                        {new Date(log.waktu).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-[#163832] leading-relaxed">
+                      {log.keterangan}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

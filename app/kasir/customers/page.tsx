@@ -5,7 +5,7 @@ import { useCustomers } from '@/hooks/use-customers'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Plus, Users, Search, Loader2, Edit2, Trash2, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
@@ -67,10 +67,10 @@ export default function CustomersPage() {
       setIsOpen(false)
       setFormData({ id: '', nama: '', no_telp: '' })
     } catch (error: any) {
-      if (error.message === 'DUPLICATE_PHONE' || error.code === '23505') {
-        toast.error('Nomor WhatsApp ini sudah terdaftar. Silakan gunakan nomor lain.')
+      if (error.message === 'DUPLICATE_DATA') {
+        toast.error('Nama (kembar) atau Nomor WhatsApp ini sudah terdaftar di sistem.')
       } else {
-        toast.error('Gagal menyimpan data pelanggan. Silakan coba kembali.')
+        toast.error('Gagal menyimpan data pelanggan.')
       }
     }
   }
@@ -83,8 +83,8 @@ export default function CustomersPage() {
       toast.success('Data pelanggan telah dihapus dari sistem.')
       setIsDeleteOpen(false)
       setSelectedId(null)
-    } catch (error) {
-      toast.error('Gagal menghapus data pelanggan. Silakan coba kembali.')
+    } catch (error: any) {
+      toast.error('Gagal menghapus data pelanggan. Data ini mungkin terikat dengan riwayat transaksi servis.')
     }
   }
 

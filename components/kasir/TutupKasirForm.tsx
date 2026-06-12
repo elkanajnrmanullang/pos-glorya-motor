@@ -148,27 +148,21 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
         throw new Error('Tidak bisa menutup kasir karena masih ada tiket berstatus selesai yang belum lunas')
       }
 
-      const { data: sesiData, error: sesiError } = await supabase
-        .from('sesi_kasir')
-        .update({
-          status: 'ditutup',
-          waktu_tutup: new Date().toISOString(),
-          cash_aktual: cashAktual,
-          qris_aktual: qrisAktual,
-          transfer_aktual: transferAktual,
-          cash_sistem: cashSistem,
-          qris_sistem: qrisSistem,
-          transfer_sistem: transferSistem,
-          total_pengeluaran: totalPengeluaran,
-          selisih_cash: selisihCash,
-          selisih_qris: selisihQris,
-          selisih_transfer: selisihTransfer,
-          catatan: catatan,
-          laporan_terkirim: true
-        })
-        .eq('id', sesiAktif.id)
-        .select()
-        .single()
+      // Bypass CORS dengan memanggil RPC tutup_sesi_kasir (Metode POST)
+      const { error: sesiError } = await supabase.rpc('tutup_sesi_kasir', {
+        p_id: sesiAktif.id,
+        p_cash_aktual: cashAktual,
+        p_qris_aktual: qrisAktual,
+        p_transfer_aktual: transferAktual,
+        p_cash_sistem: cashSistem,
+        p_qris_sistem: qrisSistem,
+        p_transfer_sistem: transferSistem,
+        p_selisih_cash: selisihCash,
+        p_selisih_qris: selisihQris,
+        p_selisih_transfer: selisihTransfer,
+        p_total_pengeluaran: totalPengeluaran,
+        p_catatan: catatan
+      })
 
       if (sesiError) throw sesiError
 
@@ -189,10 +183,10 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
         if (pengeluaranError) throw pengeluaranError
       }
 
-      return sesiData
+      return true
     },
     onSuccess: () => {
-      toast.success('Sesi kasir berhasil ditutup. Rekapan dikirim langsung ke Owner.')
+      toast.success('Sesi kasir berhasil ditutup. Terima Kasih, semangatt!.')
       queryClient.invalidateQueries({ queryKey: ['sesi-aktif', userId] })
       router.push('/kasir/dashboard')
     },
