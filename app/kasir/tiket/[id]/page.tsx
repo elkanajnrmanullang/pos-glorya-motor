@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, use } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,24 +9,26 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Wallet, ArrowLeft, Check, Printer, User, Wrench, CreditCard } from 'lucide-react'
+import { ArrowLeft, Printer, User, Wrench, CreditCard } from 'lucide-react'
 import { toast } from 'sonner'
 
+// INTERFACE PROPS
 interface PageProps {
-  params: Promise<{ id: string }>
+  params: { id: string }
 }
 
+// MAIN COMPONENT
 export default function DetailPembayaranPage({ params }: PageProps) {
-  const { id: tiketId } = use(params)
+  const tiketId = params.id
   const supabase = createClient()
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  // State Pembayaran
+  // STATE TRANSAKSI
   const [metodeBayar, setMetodeBayar] = useState<'tunai' | 'qris' | 'transfer'>('tunai')
   const [uangDibayar, setUangDibayar] = useState<number>(0)
 
-  // Query: Ambil Detail Utama Tiket Servis
+  // FETCH DETAIL TIKET
   const { data: tiket, isLoading: isTiketLoading } = useQuery({
     queryKey: ['tiket-detail', tiketId],
     queryFn: async () => {
@@ -44,7 +46,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // Query: Ambil Daftar Sparepart (Items) Dalam Tiket
+  // FETCH ITEMS SPAREPART
   const { data: spareparts, isLoading: isPartsLoading } = useQuery({
     queryKey: ['tiket-parts', tiketId],
     queryFn: async () => {
@@ -61,7 +63,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // Query: Ambil Daftar Jasa Dalam Tiket
+  // FETCH ITEMS JASA
   const { data: services, isLoading: isServicesLoading } = useQuery({
     queryKey: ['tiket-services', tiketId],
     queryFn: async () => {
@@ -75,66 +77,29 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // Mutasi: Proses Transaksi Lunas & Potong Stok Permanen
+  // MUTATION PELUNASAN (BYPASS CORS)
   const lunasMutation = useMutation({
     mutationFn: async () => {
-      // 1. Update Status Tiket Servis Jadi Lunas
-      const { error: tiketError } = await supabase
-        .from('tiket_servis')
-        .update({
-          status: 'lunas',
-          metode_bayar: metodeBayar,
-          waktu_lunas: new Date().toISOString()
-        })
-        .eq('id', tiketId)
+      const { error } = await supabase.rpc('proses_pelunasan_kasir', {
+        p_tiket_id: tiketId,
+        p_metode_bayar: metodeBayar
+      })
 
-      if (tiketError) throw tiketError
-
-      // 2. Transisi Status Sparepart Dari Reserved Ke Committed (ACID Compliance)
-      if (spareparts && spareparts.length > 0) {
-        const { error: itemsError } = await supabase
-          .from('tiket_items')
-          .update({ status: 'committed' })
-          .eq('tiket_id', tiketId)
-
-        if (itemsError) throw itemsError
-
-        // 3. Kurangi Stok Fisik & Stok Reserved Di Tabel Barang Secara Bersamaan
-        for (const item of spareparts) {
-          // Ambil data stok terbaru barang saat ini
-          const { data: currentBarang } = await supabase
-            .from('barang')
-            .select('stok_fisik, stok_reserved')
-            .eq('id', item.barang_id)
-            .single()
-
-          if (currentBarang) {
-            const newFisik = currentBarang.stok_fisik - item.qty
-            const newReserved = currentBarang.stok_reserved - item.qty
-
-            await supabase
-              .from('barang')
-              .update({
-                stok_fisik: newFisik >= 0 ? newFisik : 0,
-                stok_reserved: newReserved >= 0 ? newReserved : 0,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', item.barang_id)
-          }
-        }
-      }
+      if (error) throw error
+      return true
     },
     onSuccess: () => {
       toast.success('Pembayaran berhasil dilunasi!')
       queryClient.invalidateQueries({ queryKey: ['tiket-aktif'] })
       queryClient.invalidateQueries({ queryKey: ['metrics-sesi'] })
+      queryClient.invalidateQueries({ queryKey: ['tiket-detail', tiketId] })
     },
     onError: (error: any) => {
       toast.error(error.message || 'Gagal memproses pelunasan')
     }
   })
 
-  // Utilitas: Format Ribuan Angka Input
+  // HELPER FORMAT ANGKA
   const formatInputRibuan = (val: number) => {
     if (!val || val === 0) return ''
     return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
@@ -157,7 +122,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     return <div className="p-8 text-center text-sm font-medium text-slate-500">Data tiket tidak ditemukan.</div>
   }
 
-  // Akumulasi Total Biaya Akhir
+  // KALKULASI TOTAL
   const totalJasa = Number(tiket.total_jasa || 0)
   const totalPart = Number(tiket.total_part || 0)
   const totalAkhir = totalJasa + totalPart
@@ -165,7 +130,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      {/* Header Halaman */}
+      {/* HEADER HALAMAN */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => router.push('/kasir/tiket/aktif')} className="text-[#163832] hover:bg-[#E1EFE6]">
@@ -183,9 +148,9 @@ export default function DetailPembayaranPage({ params }: PageProps) {
 
       <div className="grid gap-6 md:grid-cols-3 items-start">
         
-        {/* Kolom Kiri: Rincian Nota Transaksi */}
+        {/* KOLOM NOTA TRANSAKSI */}
         <div className="md:col-span-2 space-y-6">
-          {/* Data Profil Ringkas Pelanggan */}
+          {/* DATA PELANGGAN */}
           <Card className="bg-[#FAF7F2] border-[#E6DFD3]">
             <CardContent className="p-4 grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2">
@@ -205,7 +170,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          {/* Rincian Seluruh Tindakan Kerja & Biaya */}
+          {/* RINCIAN BIAYA */}
           <Card className="bg-[#FAF7F2] border-[#E6DFD3] overflow-hidden">
             <CardHeader className="border-b border-[#E6DFD3]/60 bg-white/40">
               <CardTitle className="text-sm font-bold text-[#051F20]">Rincian Jasa & Suku Cadang</CardTitle>
@@ -220,7 +185,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody className="bg-white">
-                  {/* List Item Jasa */}
+                  {/* DAFTAR JASA */}
                   {services?.map((svc) => (
                     <TableRow key={svc.id} className="border-b border-[#E6DFD3]/40">
                       <TableCell className="pl-6 font-medium text-[#051F20]">
@@ -232,7 +197,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                     </TableRow>
                   ))}
 
-                  {/* List Item Sparepart */}
+                  {/* DAFTAR SPAREPART */}
                   {spareparts?.map((part) => (
                     <TableRow key={part.id} className="border-b border-[#E6DFD3]/40">
                       <TableCell className="pl-6 font-medium text-[#051F20]">
@@ -244,7 +209,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                     </TableRow>
                   ))}
 
-                  {/* Jika Nota Masih Kosong */}
+                  {/* KOSONG */}
                   {(!services?.length && !spareparts?.length) && (
                     <TableRow>
                       <TableCell colSpan={3} className="text-center text-slate-400 py-6 italic">Tidak ada tindakan atau sparepart terdaftar.</TableCell>
@@ -253,7 +218,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                 </TableBody>
               </Table>
 
-              {/* Subtotal Nota Blok Bawah */}
+              {/* SUBTOTAL */}
               <div className="bg-[#FAF7F2] p-6 border-t border-[#E6DFD3]/60 space-y-2 text-sm font-medium">
                 <div className="flex justify-between text-slate-600">
                   <span>Total Ongkos Jasa</span>
@@ -272,7 +237,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
           </Card>
         </div>
 
-        {/* Kolom Kanan: Panel Kasir Eksekusi Bayar */}
+        {/* KOLOM KANAN PELUNASAN */}
         <div className="space-y-6">
           <Card className="bg-[#FAF7F2] border-[#E6DFD3]">
             <CardHeader className="border-b border-[#E6DFD3]/60">
@@ -282,7 +247,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
             </CardHeader>
             <CardContent className="pt-4 space-y-4">
               
-              {/* Opsi Dropdown / Pilihan Metode */}
+              {/* PILIHAN METODE BAYAR */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-[#163832] uppercase">Pilih Metode Pembayaran</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -316,7 +281,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                 </div>
               </div>
 
-              {/* Form Khusus Tunai / Kembalian */}
+              {/* INPUT TUNAI */}
               {metodeBayar === 'tunai' && tiket.status !== 'lunas' && (
                 <div className="space-y-4 pt-2 border-t border-[#E6DFD3]/60">
                   <div className="space-y-1.5">
@@ -342,12 +307,12 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                 </div>
               )}
 
-              {/* Tombol Eksekusi atau Tombol Cetak Struk */}
+              {/* TOMBOL EKSEKUSI BAYAR */}
               {tiket.status === 'lunas' ? (
                 <Button 
                   type="button"
                   className="w-full h-12 font-bold tracking-wider bg-[#051F20] hover:bg-black text-white"
-                  onClick={() => toast.info('Fitur Printer ESC/POS Thermal WebUSB dipanggil')}
+                  onClick={() => toast.info('Printer belum terhubung')}
                 >
                   <Printer className="w-4 h-4 mr-1.5" /> CETAK STRUK FINAL
                 </Button>
