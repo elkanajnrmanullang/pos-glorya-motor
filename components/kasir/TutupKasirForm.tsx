@@ -22,6 +22,7 @@ interface PengeluaranInput {
   kategori: string
   sumberDana: 'cash' | 'rekening'
   fotoNama?: string
+  fileObj?: File
 }
 
 export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProps) {
@@ -94,17 +95,12 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
         if (tw.metode_bayar === 'transfer') transferSistem += Number(tw.total)
       })
 
-      return {
-        adaTiketSelesai,
-        cashSistem,
-        qrisSistem,
-        transferSistem
-      }
+      return { adaTiketSelesai, cashSistem, qrisSistem, transferSistem }
     },
     enabled: !!sesiAktif?.id
   })
 
-  // Fungsi Tambah Pengeluaran
+  // Fungsi Tambah Pengeluaran Manual (Klik Tombol)
   const handleAddPengeluaran = () => {
     if (!newJumlah || !newKeterangan) {
       toast.error('Jumlah dan keterangan wajib diisi')
@@ -117,25 +113,32 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
         keterangan: newKeterangan,
         kategori: 'lainnya',
         sumberDana: sumberDana,
-        fotoNama: selectedFile ? selectedFile.name : undefined
+        fotoNama: selectedFile ? selectedFile.name : undefined,
+        fileObj: selectedFile || undefined 
       }
     ])
     setNewJumlah(0)
     setNewKeterangan('')
     setSelectedFile(null)
+    
+    // Reset file input UI
+    const fileInput = document.getElementById('file-upload') as HTMLInputElement
+    if (fileInput) fileInput.value = ''
   }
 
-  // Fungsi Hapus Pengeluaran
   const handleRemovePengeluaran = (index: number) => {
     setPengeluaranList(pengeluaranList.filter((_, i) => i !== index))
   }
 
-  // Perhitungan Data Latar Belakang
+  // KALKULASI PENGELUARAN DINAMIS (Termasuk yang belum di-klik "Tambah")
+  const pendingJumlah = (newJumlah > 0 && newKeterangan.trim() !== '') ? newJumlah : 0
+  const totalPengeluaranList = pengeluaranList.reduce((acc, curr) => acc + curr.jumlah, 0)
+  const totalPengeluaran = totalPengeluaranList + pendingJumlah // <-- Auto detect form menggantung
+
   const modalAwal = Number(sesiAktif.modal_awal)
   const cashSistem = systemSummary?.cashSistem || 0
   const qrisSistem = systemSummary?.qrisSistem || 0
   const transferSistem = systemSummary?.transferSistem || 0
-  const totalPengeluaran = pengeluaranList.reduce((acc, curr) => acc + curr.jumlah, 0)
 
   const selisihCash = cashAktual - (modalAwal + cashSistem - totalPengeluaran)
   const selisihQris = qrisAktual - qrisSistem
@@ -145,10 +148,23 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
   const tutupKasirMutation = useMutation({
     mutationFn: async () => {
       if (systemSummary?.adaTiketSelesai) {
-        throw new Error('Tidak bisa menutup kasir karena masih ada tiket berstatus selesai yang belum lunas')
+        throw new Error('Selesaikan seluruh pembayaran antrean sebelum menutup shift.')
       }
 
-      // Bypass CORS dengan memanggil RPC tutup_sesi_kasir (Metode POST)
+      // OTOMATIS GABUNGKAN INPUT YANG MENGGANTUNG SEBELUM SUBMIT
+      const finalPengeluaranList = [...pengeluaranList]
+      if (newJumlah > 0 && newKeterangan.trim() !== '') {
+        finalPengeluaranList.push({
+          jumlah: newJumlah,
+          keterangan: newKeterangan,
+          kategori: 'lainnya',
+          sumberDana: sumberDana,
+          fotoNama: selectedFile ? selectedFile.name : undefined,
+          fileObj: selectedFile || undefined
+        })
+      }
+
+      // 1. Kunci dan Tutup Sesi di Database
       const { error: sesiError } = await supabase.rpc('tutup_sesi_kasir', {
         p_id: sesiAktif.id,
         p_cash_aktual: cashAktual,
@@ -166,14 +182,35 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
 
       if (sesiError) throw sesiError
 
-      if (pengeluaranList.length > 0) {
-        const pengeluaranPayload = pengeluaranList.map(p => ({
-          sesi_id: sesiAktif.id,
-          kasir_id: userId,
-          jumlah: p.jumlah,
-          keterangan: `[Sumber: ${p.sumberDana.toUpperCase()}] ${p.keterangan}${p.fotoNama ? ` (File Struk: ${p.fotoNama})` : ''}`,
-          kategori: p.kategori,
-          cabang_id: sesiAktif.cabang_id
+      // 2. Upload Struk & Simpan Pengeluaran
+      if (finalPengeluaranList.length > 0) {
+        const pengeluaranPayload = await Promise.all(finalPengeluaranList.map(async (p) => {
+          let fileUrl = ''
+          
+          if (p.fileObj) {
+            const fileExt = p.fileObj.name.split('.').pop()
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`
+            
+            const { error: uploadError } = await supabase.storage
+              .from('bukti_struk')
+              .upload(fileName, p.fileObj)
+              
+            if (!uploadError) {
+              const { data: publicUrlData } = supabase.storage.from('bukti_struk').getPublicUrl(fileName)
+              fileUrl = publicUrlData.publicUrl
+            }
+          }
+
+          const strUrl = fileUrl ? ` (File Struk: ${fileUrl})` : ''
+          
+          return {
+            sesi_id: sesiAktif.id,
+            kasir_id: userId,
+            jumlah: p.jumlah,
+            keterangan: `[Sumber: ${p.sumberDana.toUpperCase()}] ${p.keterangan}${strUrl}`,
+            kategori: p.kategori,
+            cabang_id: sesiAktif.cabang_id || null
+          }
         }))
 
         const { error: pengeluaranError } = await supabase
@@ -186,7 +223,7 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
       return true
     },
     onSuccess: () => {
-      toast.success('Sesi kasir berhasil ditutup. Terima Kasih, semangatt!.')
+      toast.success('Sesi ditutup & bukti berhasil diunggah. Terima Kasih!')
       queryClient.invalidateQueries({ queryKey: ['sesi-aktif', userId] })
       router.push('/kasir/dashboard')
     },
@@ -208,7 +245,7 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
           <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
           <div>
             <h5 className="font-semibold">Penutupan Kasir Terkunci</h5>
-            <p className="text-sm mt-0.5">Ada tiket pelanggan yang berstatus &quot;Selesai&quot; namun belum diselesaikan pembayarannya oleh Kasir. Selesaikan seluruh pembayaran antrean sebelum menutup shift.</p>
+            <p className="text-sm mt-0.5">Selesaikan seluruh pembayaran antrean sebelum menutup shift.</p>
           </div>
         </div>
       )}
@@ -224,37 +261,28 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
               <Input 
-                type="text" 
-                value={formatInputRibuan(cashAktual)} 
-                onChange={(e) => setCashAktual(parseInputRibuan(e.target.value))}
-                placeholder="0"
-                className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                type="text" value={formatInputRibuan(cashAktual)} onChange={(e) => setCashAktual(parseInputRibuan(e.target.value))}
+                placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#163832]">Total QRIS Aktual (Berdasarkan Aplikasi / Mutasi)</label>
+            <label className="text-sm font-semibold text-[#163832]">Total QRIS Aktual (Aplikasi / Mutasi)</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
               <Input 
-                type="text" 
-                value={formatInputRibuan(qrisAktual)} 
-                onChange={(e) => setQrisAktual(parseInputRibuan(e.target.value))}
-                placeholder="0"
-                className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                type="text" value={formatInputRibuan(qrisAktual)} onChange={(e) => setQrisAktual(parseInputRibuan(e.target.value))}
+                placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#163832]">Total Transfer Bank Aktual (Berdasarkan Mutasi Rekening)</label>
+            <label className="text-sm font-semibold text-[#163832]">Total Transfer Bank Aktual</label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
               <Input 
-                type="text" 
-                value={formatInputRibuan(transferAktual)} 
-                onChange={(e) => setTransferAktual(parseInputRibuan(e.target.value))}
-                placeholder="0"
-                className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                type="text" value={formatInputRibuan(transferAktual)} onChange={(e) => setTransferAktual(parseInputRibuan(e.target.value))}
+                placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
               />
             </div>
           </div>
@@ -271,11 +299,8 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
             <div className="space-y-2">
               <label className="text-xs font-bold text-[#163832] uppercase">Keterangan Pengeluaran</label>
               <Input 
-                type="text" 
-                value={newKeterangan} 
-                onChange={(e) => setNewKeterangan(e.target.value)}
-                placeholder="Contoh: Beli oli cadangan dari toko sebelah"
-                className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                type="text" value={newKeterangan} onChange={(e) => setNewKeterangan(e.target.value)}
+                placeholder="Contoh: Beli oli cadangan" className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
               />
             </div>
             <div className="space-y-2">
@@ -283,11 +308,8 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
                 <Input 
-                  type="text" 
-                  value={formatInputRibuan(newJumlah)} 
-                  onChange={(e) => setNewJumlah(parseInputRibuan(e.target.value))}
-                  placeholder="0"
-                  className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                  type="text" value={formatInputRibuan(newJumlah)} onChange={(e) => setNewJumlah(parseInputRibuan(e.target.value))}
+                  placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
                 />
               </div>
             </div>
@@ -296,23 +318,13 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
               <div className="flex gap-3 h-10 items-center">
                 <label className="flex items-center gap-2 text-sm text-[#163832] font-medium cursor-pointer">
                   <input 
-                    type="radio" 
-                    name="sumberDana" 
-                    checked={sumberDana === 'cash'} 
-                    onChange={() => setSumberDana('cash')}
-                    className="accent-[#235347] w-4 h-4"
-                  />
-                  Uang Cash / Laci
+                    type="radio" name="sumberDana" checked={sumberDana === 'cash'} onChange={() => setSumberDana('cash')} className="accent-[#235347] w-4 h-4"
+                  /> Uang Cash / Laci
                 </label>
                 <label className="flex items-center gap-2 text-sm text-[#163832] font-medium cursor-pointer">
                   <input 
-                    type="radio" 
-                    name="sumberDana" 
-                    checked={sumberDana === 'rekening'} 
-                    onChange={() => setSumberDana('rekening')}
-                    className="accent-[#235347] w-4 h-4"
-                  />
-                  Rekening / Transfer
+                    type="radio" name="sumberDana" checked={sumberDana === 'rekening'} onChange={() => setSumberDana('rekening')} className="accent-[#235347] w-4 h-4"
+                  /> Rekening / Transfer
                 </label>
               </div>
             </div>
@@ -321,15 +333,13 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
                 <ImageIcon className="w-3.5 h-3.5 text-[#235347]" /> Upload Foto Struk Nota
               </label>
               <Input 
-                type="file" 
-                accept="image/*"
+                id="file-upload" type="file" accept="image/*"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
                 className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white file:text-xs file:bg-[#E1EFE6] file:text-[#235347] file:border-0 cursor-pointer"
               />
             </div>
             <Button 
-              type="button" 
-              onClick={handleAddPengeluaran} 
+              type="button" onClick={handleAddPengeluaran} 
               className="w-full md:col-span-2 bg-[#235347] hover:bg-[#051F20] text-white font-semibold mt-2"
             >
               <Plus className="w-4 h-4 mr-1" /> Tambahkan Pengeluaran
@@ -337,37 +347,39 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
           </div>
 
           {pengeluaranList.length > 0 && (
-            <Table className="bg-white border border-[#E6DFD3] rounded-lg overflow-hidden">
-              <TableHeader className="bg-[#FAF7F2]">
-                <TableRow>
-                  <TableHead className="text-[#163832] font-bold">Keterangan & Sumber Dana</TableHead>
-                  <TableHead className="text-[#163832] font-bold">File Nota</TableHead>
-                  <TableHead className="text-right text-[#163832] font-bold">Jumlah</TableHead>
-                  <TableHead className="w-16"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pengeluaranList.map((p, idx) => (
-                  <TableRow key={idx} className="border-b border-[#E6DFD3]/60">
-                    <TableCell className="font-medium text-[#051F20]">
-                      <span className={`text-xs px-2 py-0.5 rounded-full mr-2 font-bold ${p.sumberDana === 'cash' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                        {p.sumberDana.toUpperCase()}
-                      </span>
-                      {p.keterangan}
-                    </TableCell>
-                    <TableCell className="text-xs text-slate-500 italic max-w-[150px] truncate">
-                      {p.fotoNama || 'Tidak ada'}
-                    </TableCell>
-                    <TableCell className="text-right text-[#051F20] font-bold">{formatRupiah(p.jumlah)}</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => handleRemovePengeluaran(idx)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
+            <div className="w-full overflow-x-auto border border-[#E6DFD3] rounded-lg">
+              <Table className="bg-white min-w-[500px]">
+                <TableHeader className="bg-[#FAF7F2]">
+                  <TableRow>
+                    <TableHead className="text-[#163832] font-bold">Keterangan</TableHead>
+                    <TableHead className="text-[#163832] font-bold">File Nota</TableHead>
+                    <TableHead className="text-right text-[#163832] font-bold">Jumlah</TableHead>
+                    <TableHead className="w-16"></TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {pengeluaranList.map((p, idx) => (
+                    <TableRow key={idx} className="border-b border-[#E6DFD3]/60">
+                      <TableCell className="font-medium text-[#051F20]">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-sm mr-2 font-bold whitespace-nowrap ${p.sumberDana === 'cash' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                          {p.sumberDana.toUpperCase()}
+                        </span>
+                        {p.keterangan}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-500 italic max-w-[150px] truncate">
+                        {p.fotoNama || 'Tidak ada'}
+                      </TableCell>
+                      <TableCell className="text-right text-[#051F20] font-bold">{formatRupiah(p.jumlah)}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon" onClick={() => handleRemovePengeluaran(idx)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -378,11 +390,8 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
           <div className="space-y-2">
             <label className="text-sm font-semibold text-[#163832]">Catatan Tambahan Shift (Opsional)</label>
             <Input 
-              type="text" 
-              value={catatan} 
-              onChange={(e) => setCatatan(e.target.value)}
-              placeholder="Tambahkan informasi penting mengenai shift hari ini jika ada"
-              className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+              type="text" value={catatan} onChange={(e) => setCatatan(e.target.value)}
+              placeholder="Tambahkan informasi shift hari ini" className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
             />
           </div>
 
@@ -391,10 +400,10 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
             className="w-full h-14 text-base font-bold bg-[#235347] hover:bg-[#051F20] text-white shadow-md transition-all tracking-wider"
             disabled={tutupKasirMutation.isPending || systemSummary?.adaTiketSelesai}
           >
-            {tutupKasirMutation.isPending ? 'Mengunci & Mengirim Rekap...' : 'SELESAIKAN SHIFT & KIRIM REKAPAN'}
+            {tutupKasirMutation.isPending ? 'Mengunci & Mengunggah Data...' : 'SELESAIKAN SHIFT & KIRIM REKAPAN'}
           </Button>
         </CardContent>
       </Card>
     </div>
   )
-}
+}                                 
