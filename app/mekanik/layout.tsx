@@ -33,7 +33,6 @@ export default function MekanikLayout({ children }: { children: React.ReactNode 
           </form>
         </div>
       </aside>
-
       <main className="flex-1 p-6 lg:p-10">
         {children}
       </main>
