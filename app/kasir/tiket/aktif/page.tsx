@@ -17,7 +17,7 @@ export default function TiketAktifPage() {
   
   const [userId, setUserId] = useState<string | undefined>(undefined)
 
-  // Ambil data User aktif
+  // GET_USER_SESSION
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -26,7 +26,7 @@ export default function TiketAktifPage() {
     getUser()
   }, [supabase])
 
-  // Fetch semua tiket yang belum lunas
+  // FETCH_UNPAID_TICKETS
   const { data: tiketAktif, isLoading } = useQuery({
     queryKey: ['tiket-aktif'],
     queryFn: async () => {
@@ -36,7 +36,7 @@ export default function TiketAktifPage() {
           *,
           customers(nama, no_telp)
         `)
-        // Filter: Hanya tampilkan tiket yang statusnya BUKAN lunas
+        // QUERY_FILTER_EXCLUDE_LUNAS
         .neq('status', 'lunas')
         .order('waktu_masuk', { ascending: true })
 
@@ -45,7 +45,7 @@ export default function TiketAktifPage() {
     }
   })
 
-  // SUBSCRIPTION REALTIME: Dengarkan perubahan tabel tiket_servis
+  // INIT_REALTIME_SUBSCRIPTION_TIKET_SERVIS
   useEffect(() => {
     const channel = supabase
       .channel('realtime-tiket-kasir')
@@ -54,12 +54,15 @@ export default function TiketAktifPage() {
         schema: 'public',
         table: 'tiket_servis'
       }, (payload) => {
-        // Jika ada perubahan dari mekanik (UPDATE/INSERT), refresh data di layar Kasir
+        // INVALIDATE_QUERY_ON_POSTGRES_CHANGES
         queryClient.invalidateQueries({ queryKey: ['tiket-aktif'] })
         
-        // Opsional: Beri notifikasi jika ada tiket yang berubah jadi 'selesai'
-        if (payload.new && payload.new.status === 'selesai' && payload.old && payload.old.status !== 'selesai') {
-          toast.success(`Tiket Antrean ${payload.new.nomor_antrian} telah selesai dikerjakan mekanik! Menunggu pembayaran.`)
+        // TRIGGER_TOAST_ON_STATUS_SELESAI
+        const newData = payload.new as any;
+        const oldData = payload.old as any;
+        
+        if (newData && newData.status === 'selesai' && oldData && oldData.status !== 'selesai') {
+          toast.success(`Tiket Antrean ${newData.nomor_antrian} telah selesai dikerjakan mekanik! Menunggu pembayaran.`)
         }
       })
       .subscribe()
@@ -71,16 +74,17 @@ export default function TiketAktifPage() {
 
   if (isLoading) return <div className="text-sm font-medium text-[#163832] p-8">Memuat antrean aktif...</div>
 
-  // Pisahkan tiket berdasarkan status agar mudah dibaca kasir
+  // CATEGORIZE_TICKETS_BY_STATUS
   const tiketMenunggu = tiketAktif?.filter(t => t.status === 'menunggu') || []
   const tiketDikerjakan = tiketAktif?.filter(t => t.status === 'dikerjakan') || []
   const tiketSelesai = tiketAktif?.filter(t => t.status === 'selesai') || []
 
+  // FORMAT_TIMESTAMP_TO_TIME_STRING
   const formatWaktu = (dateString: string) => {
     return new Date(dateString).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
   }
 
-  // Komponen Kartu Tiket Kecil
+  // COMPONENT_TIKET_CARD
   const TiketCard = ({ tiket }: { tiket: any }) => (
     <Card className={`border ${tiket.status === 'selesai' ? 'border-emerald-300 bg-emerald-50' : 'border-[#E6DFD3] bg-white'} shadow-sm relative overflow-hidden`}>
       {tiket.status === 'selesai' && (
@@ -134,6 +138,7 @@ export default function TiketAktifPage() {
     </Card>
   )
 
+  // RENDER_MAIN_LAYOUT
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       <div>
@@ -146,7 +151,7 @@ export default function TiketAktifPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
-        {/* Kolom: Menunggu Mekanik */}
+        {/* RENDER_COLUMN_MENUNGGU */}
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-amber-200">
             <h3 className="font-bold text-amber-900 flex items-center gap-2">
@@ -163,7 +168,7 @@ export default function TiketAktifPage() {
           )}
         </div>
 
-        {/* Kolom: Sedang Dikerjakan */}
+        {/* RENDER_COLUMN_DIKERJAKAN */}
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-blue-200">
             <h3 className="font-bold text-blue-900 flex items-center gap-2">
@@ -180,7 +185,7 @@ export default function TiketAktifPage() {
           )}
         </div>
 
-        {/* Kolom: Selesai (Menunggu Pembayaran) */}
+        {/* RENDER_COLUMN_SELESAI */}
         <div className="space-y-4">
           <div className="flex items-center justify-between pb-2 border-b border-emerald-200">
             <h3 className="font-bold text-emerald-900 flex items-center gap-2">

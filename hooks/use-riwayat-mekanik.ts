@@ -1,14 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-// INTERFACE TIKET RIWAYAT
+// INTERFACE_TIKET_RIWAYAT
 export interface TiketRiwayat {
   id: string
   plat_motor: string
   merk_motor: string
   status: string
-  waktu_selesai: string
   waktu_masuk: string
+  waktu_selesai: string
   customers?: {
     nama: string
   }
@@ -18,30 +18,38 @@ export interface TiketRiwayat {
   }[]
 }
 
-// HOOK FETCH RIWAYAT MEKANIK
-export function useRiwayatMekanik() {
+// HOOK_USE_RIWAYAT_MEKANIK
+export function useRiwayatMekanik(mekanikId: string | undefined) {
   const supabase = createClient()
 
+  // FETCH_DATA_RIWAYAT_MEKANIK
   const query = useQuery({
-    queryKey: ['riwayat-mekanik'],
+    queryKey: ['riwayat-mekanik', mekanikId],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('Not authenticated')
+      if (!mekanikId) return []
 
       const { data, error } = await supabase
         .from('tiket_servis')
         .select(`
-          id, plat_motor, merk_motor, status, waktu_selesai, waktu_masuk,
-          customers(nama),
-          tiket_jasa(nama_jasa, harga_jasa)
+          id, 
+          plat_motor, 
+          merk_motor, 
+          status, 
+          waktu_masuk,
+          waktu_selesai, 
+          customers (nama), 
+          tiket_jasa (nama_jasa, harga_jasa)
         `)
+        .eq('mekanik_id', mekanikId)
         .in('status', ['selesai', 'lunas'])
-        .eq('mekanik_id', user.id)
         .order('waktu_selesai', { ascending: false })
 
       if (error) throw error
-      return data as TiketRiwayat[]
-    }
+      
+      // TYPE_CASTING_WORKAROUND_SUPABASE_JOIN
+      return data as unknown as TiketRiwayat[]
+    },
+    enabled: !!mekanikId
   })
 
   return {
