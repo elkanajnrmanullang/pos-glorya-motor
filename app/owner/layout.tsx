@@ -1,140 +1,108 @@
 "use client"
 
-import { ReactNode } from "react"
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { 
-  LayoutDashboard, 
-  FileBox, 
-  History, 
-  Wrench, 
-  Boxes, 
-  Users, 
-  Award, 
-  LogOut 
-} from "lucide-react"
-import { logoutAction } from "@/app/(auth)/login/actions"
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { LayoutDashboard, Users, Box, Wrench, FileText, Receipt, Activity, LogOut, Menu, X } from 'lucide-react'
+import { toast } from 'sonner'
 
-export default function OwnerLayout({ children }: { children: ReactNode }) {
+export default function OwnerLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
+  const [userName, setUserName] = useState<string>('')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  // HELPER UNTUK MENU AKTIF
-  const isActive = (path: string) => pathname === path || pathname.startsWith(`${path}/`)
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return; }
+      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
+      if (profile) setUserName(profile.full_name)
+    }
+    getUser()
+  }, [router, supabase])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+    toast.success('Berhasil logout')
+  }
+
+  const navItems = [
+    { name: 'Ringkasan Bisnis', href: '/owner/dashboard', icon: LayoutDashboard },
+    { name: 'Pantauan Stok & Aset', href: '/owner/stok', icon: Box },
+    { name: 'Katalog Master Jasa', href: '/owner/master-jasa', icon: Wrench },
+    { name: 'Bagi Hasil Mekanik', href: '/owner/performa', icon: Activity },
+    { name: 'Laporan Tutup Shift', href: '/owner/laporan-shift', icon: FileText },
+    { name: 'Riwayat Transaksi', href: '/owner/riwayat', icon: Receipt },
+    { name: 'Akun Karyawan', href: '/owner/karyawan', icon: Users },
+  ]
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-[#FAFCFB] lg:flex-row font-sans">
+    <div className="flex h-screen bg-slate-50 overflow-hidden">
       
-      {/* SIDEBAR NAVIGATION */}
-      <aside className="w-full lg:w-64 bg-[#051F20] flex flex-col transition-all overflow-y-auto">
-        
-        {/* BRANDING */}
-        <div className="p-8 flex flex-col items-center border-b border-[#163832]">
-          <div className="text-xl tracking-[0.2em] font-light text-white">
-            GLORYA<span className="font-bold text-[#8EB69B]">MOTOR</span>
-          </div>
-          <div className="text-[10px] mt-2 text-[#8EB69B] tracking-widest uppercase font-bold">
-            Executive Panel
+      <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-[#051F20] text-white flex items-center justify-between px-4 z-50 shadow-md">
+        <div className="flex items-center gap-2">
+          <div className="bg-[#8EB69B] p-1.5 rounded-lg"><Wrench className="w-5 h-5 text-[#051F20]" /></div>
+          <h1 className="text-lg font-black tracking-wider">GLORYA<span className="text-[#8EB69B]">POS</span></h1>
+        </div>
+        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 hover:bg-white/10 rounded-md">
+          {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
+      <aside className={`
+        fixed md:static inset-y-0 left-0 z-50
+        w-72 md:w-64 bg-[#163832] text-white flex flex-col h-full transition-transform duration-300 ease-out
+        ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
+        <div className="hidden md:flex p-6 bg-[#051F20] items-center justify-center">
+          <div className="flex items-center gap-3">
+            <div className="bg-[#8EB69B] p-2 rounded-xl shadow-inner"><Wrench className="w-6 h-6 text-[#051F20]" /></div>
+            <h1 className="text-2xl font-black tracking-wider text-white drop-shadow-md">GLORYA<span className="text-[#8EB69B]">POS</span></h1>
           </div>
         </div>
-        
-        <nav className="flex-1 px-4 py-6 space-y-6">
-          
-          {/* GRUP 1: ANALITIK & LAPORAN */}
-          <div className="space-y-1">
-            <p className="px-4 text-[10px] font-bold tracking-widest text-[#163832] uppercase mb-2">Analitik & Laporan</p>
-            <Link 
-              href="/owner/dashboard" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/dashboard') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <LayoutDashboard className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Ringkasan Utama</span>
-            </Link>
-            
-            <Link 
-              href="/owner/laporan-shift" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/laporan-shift') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <FileBox className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Audit Shift Kasir</span>
-            </Link>
 
-            <Link 
-              href="/owner/riwayat" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/riwayat') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <History className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Riwayat Transaksi</span>
-            </Link>
-          </div>
-
-          {/* GRUP 2: MANAJEMEN BENGKEL */}
-          <div className="space-y-1">
-            <p className="px-4 text-[10px] font-bold tracking-widest text-[#163832] uppercase mb-2">Manajemen Bengkel</p>
-            <Link 
-              href="/owner/master-jasa" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/master-jasa') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <Wrench className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Katalog Jasa Servis</span>
-            </Link>
-            <Link 
-              href="/owner/stok" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/stok') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <Boxes className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Pantauan Stok & Aset</span>
-            </Link>
-          </div>
-
-          {/* GRUP 3: KARYAWAN & PERFORMA */}
-          <div className="space-y-1">
-            <p className="px-4 text-[10px] font-bold tracking-widest text-[#163832] uppercase mb-2">Tim & Karyawan</p>
-            <Link 
-              href="/owner/performa" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/performa') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <Award className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Bagi Hasil Mekanik</span>
-            </Link>
-            <Link 
-              href="/owner/karyawan" 
-              className={`flex items-center gap-3 rounded-lg px-4 py-3 transition-all duration-300 group ${
-                isActive('/owner/karyawan') ? 'bg-[#163832] text-white shadow-md' : 'text-[#8EB69B] hover:bg-[#163832]/50 hover:text-white'
-              }`}
-            >
-              <Users className="h-4 w-4 group-hover:scale-110 transition-transform" /> 
-              <span className="font-medium text-sm">Akun Karyawan</span>
-            </Link>
-          </div>
-
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto mt-16 md:mt-0">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-2">Menu Owner</div>
+          {navItems.map((item) => {
+            const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+            const Icon = item.icon
+            return (
+              <Link key={item.name} href={item.href} onClick={() => setIsMobileMenuOpen(false)}
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl font-bold transition-all duration-200 ${
+                  isActive ? 'bg-[#8EB69B] text-[#051F20] shadow-md' : 'text-slate-300 hover:bg-[#235347] hover:text-white'
+                }`}>
+                <Icon className={`w-5 h-5 ${isActive ? 'text-[#051F20]' : 'text-slate-400'}`} /> {item.name}
+              </Link>
+            )
+          })}
         </nav>
 
-        {/* BOTTOM SECTION */}
-        <div className="p-4 border-t border-[#163832]">
-          <form action={logoutAction} className="w-full">
-            <button type="submit" className="flex w-full items-center gap-3 rounded-lg px-4 py-3 text-[#8EB69B] hover:bg-red-900/30 hover:text-red-400 transition-all duration-300 group">
-              <LogOut className="h-4 w-4 group-hover:-translate-x-1 transition-transform" /> 
-              <span className="font-medium text-sm">Keluar Sistem</span>
-            </button>
-          </form>
+        <div className="p-4 bg-[#051F20] border-t border-[#235347]/50 mt-auto">
+          <div className="flex items-center gap-3 mb-4 px-2">
+            <div className="w-10 h-10 rounded-full bg-[#8EB69B] flex items-center justify-center text-[#051F20] font-black text-lg border-2 border-[#163832]">
+              {userName.charAt(0).toUpperCase() || 'O'}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-sm font-bold truncate text-white">{userName || 'Memuat...'}</p>
+              <p className="text-xs text-[#8EB69B] font-semibold uppercase tracking-wider">Owner</p>
+            </div>
+          </div>
+          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl font-bold">
+            <LogOut className="w-4 h-4" /> Keluar Sesi
+          </button>
         </div>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 p-4 lg:p-10 max-h-screen overflow-y-auto">
-        {children}
+      <main className="flex-1 h-screen overflow-y-auto w-full pt-16 md:pt-0 bg-slate-50">
+        <div className="p-4 sm:p-6 md:p-8 max-w-full">{children}</div>
       </main>
     </div>
   )

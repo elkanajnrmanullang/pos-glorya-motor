@@ -143,10 +143,10 @@ export default function TakeawayPOSPage() {
           Total: {formatRupiah(trxSukses.total)}
         </div>
         <div className="grid gap-3 pt-4">
-          <Button className="h-12 bg-[#051F20] hover:bg-black font-bold tracking-widest text-white">
+          <Button className="h-12 w-full bg-[#051F20] hover:bg-black font-bold tracking-widest text-white">
             <Printer className="w-4 h-4 mr-2" /> CETAK STRUK THERMAL
           </Button>
-          <Button variant="outline" className="h-12 border-[#8EB69B] text-[#235347] font-bold" onClick={handleTransaksiBaru}>
+          <Button variant="outline" className="h-12 w-full border-[#8EB69B] text-[#235347] font-bold" onClick={handleTransaksiBaru}>
             TRANSAKSI BARU
           </Button>
         </div>
@@ -173,10 +173,10 @@ export default function TakeawayPOSPage() {
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8EB69B]" />
               <Input
                 type="text"
-                placeholder="Scan barcode atau ketik nama barang..."
+                placeholder="Scan atau ketik nama barang..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-12 h-14 text-lg border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20] shadow-sm rounded-xl"
+                className="pl-12 h-14 text-base sm:text-lg border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20] shadow-sm rounded-xl w-full"
                 autoFocus
               />
             </div>
@@ -185,7 +185,7 @@ export default function TakeawayPOSPage() {
             {isSearching ? (
               <div className="text-center py-8 text-[#163832]">Memuat katalog barang...</div>
             ) : searchResults && searchResults.length > 0 ? (
-              <div className="grid sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {searchResults.map(b => (
                   <div 
                     key={b.id} 
@@ -239,24 +239,24 @@ export default function TakeawayPOSPage() {
               <CardTitle className="text-sm font-bold text-[#051F20]">Keranjang ({cart.length} Item)</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-[250px] overflow-y-auto">
+              <div className="max-h-[300px] overflow-y-auto">
                 {cart.length === 0 ? (
                   <div className="p-8 text-center text-slate-400 text-sm">Keranjang masih kosong</div>
                 ) : (
                   <div className="divide-y divide-[#E6DFD3]/60">
                     {cart.map(item => (
-                      <div key={item.id} className="p-4 bg-white flex justify-between items-center">
-                        <div className="flex-1 pr-4">
+                      <div key={item.id} className="p-4 bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                        <div className="flex-1">
                           <p className="font-bold text-[#051F20] text-sm leading-tight">{item.nama}</p>
                           <p className="font-semibold text-[#235347] text-xs mt-1">{formatRupiah(item.harga_jual)}</p>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-0 pt-2 sm:pt-0 border-slate-100">
                           <div className="flex items-center bg-[#E1EFE6] rounded-lg">
-                            <button onClick={() => updateQty(item.id, -1)} className="p-1.5 text-[#235347] hover:bg-[#8EB69B]/30 rounded-l-lg"><Minus className="w-4 h-4" /></button>
-                            <span className="w-8 text-center font-bold text-sm text-[#051F20]">{item.qty}</span>
-                            <button onClick={() => updateQty(item.id, 1)} className="p-1.5 text-[#235347] hover:bg-[#8EB69B]/30 rounded-r-lg"><Plus className="w-4 h-4" /></button>
+                            <button onClick={() => updateQty(item.id, -1)} className="p-2 sm:p-1.5 text-[#235347] hover:bg-[#8EB69B]/30 rounded-l-lg"><Minus className="w-4 h-4" /></button>
+                            <span className="w-10 sm:w-8 text-center font-bold text-sm text-[#051F20]">{item.qty}</span>
+                            <button onClick={() => updateQty(item.id, 1)} className="p-2 sm:p-1.5 text-[#235347] hover:bg-[#8EB69B]/30 rounded-r-lg"><Plus className="w-4 h-4" /></button>
                           </div>
-                          <button onClick={() => removeFromCart(item.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={() => removeFromCart(item.id)} className="p-2 sm:p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-5 h-5 sm:w-4 sm:h-4" /></button>
                         </div>
                       </div>
                     ))}
@@ -273,9 +273,9 @@ export default function TakeawayPOSPage() {
 
                 <div className="space-y-2">
                   <div className="grid grid-cols-3 gap-2">
-                    <Button type="button" variant={metodeBayar === 'tunai' ? 'default' : 'outline'} className={`text-xs font-bold ${metodeBayar === 'tunai' ? 'bg-[#235347] text-white hover:bg-[#051F20]' : 'border-[#8EB69B]/40 text-[#163832]'}`} onClick={() => setMetodeBayar('tunai')}>CASH</Button>
-                    <Button type="button" variant={metodeBayar === 'qris' ? 'default' : 'outline'} className={`text-xs font-bold ${metodeBayar === 'qris' ? 'bg-[#235347] text-white hover:bg-[#051F20]' : 'border-[#8EB69B]/40 text-[#163832]'}`} onClick={() => setMetodeBayar('qris')}>QRIS</Button>
-                    <Button type="button" variant={metodeBayar === 'transfer' ? 'default' : 'outline'} className={`text-xs font-bold ${metodeBayar === 'transfer' ? 'bg-[#235347] text-white hover:bg-[#051F20]' : 'border-[#8EB69B]/40 text-[#163832]'}`} onClick={() => setMetodeBayar('transfer')}>BANK</Button>
+                    <Button type="button" variant={metodeBayar === 'tunai' ? 'default' : 'outline'} className={`text-xs h-10 font-bold ${metodeBayar === 'tunai' ? 'bg-[#235347] text-white hover:bg-[#051F20]' : 'border-[#8EB69B]/40 text-[#163832]'}`} onClick={() => setMetodeBayar('tunai')}>CASH</Button>
+                    <Button type="button" variant={metodeBayar === 'qris' ? 'default' : 'outline'} className={`text-xs h-10 font-bold ${metodeBayar === 'qris' ? 'bg-[#235347] text-white hover:bg-[#051F20]' : 'border-[#8EB69B]/40 text-[#163832]'}`} onClick={() => setMetodeBayar('qris')}>QRIS</Button>
+                    <Button type="button" variant={metodeBayar === 'transfer' ? 'default' : 'outline'} className={`text-xs h-10 font-bold ${metodeBayar === 'transfer' ? 'bg-[#235347] text-white hover:bg-[#051F20]' : 'border-[#8EB69B]/40 text-[#163832]'}`} onClick={() => setMetodeBayar('transfer')}>BANK</Button>
                   </div>
                 </div>
 
@@ -289,7 +289,7 @@ export default function TakeawayPOSPage() {
                         value={formatInputRibuan(uangDibayar)}
                         onChange={(e) => setUangDibayar(parseInputRibuan(e.target.value))}
                         placeholder="0"
-                        className="pl-9 h-12 font-bold text-lg bg-[#FAF7F2] text-[#051F20] border-[#8EB69B]/50 focus-visible:ring-[#235347]"
+                        className="pl-9 h-12 font-bold text-lg bg-[#FAF7F2] text-[#051F20] border-[#8EB69B]/50 focus-visible:ring-[#235347] w-full"
                       />
                     </div>
                     {uangDibayar >= totalAkhir && totalAkhir > 0 && (

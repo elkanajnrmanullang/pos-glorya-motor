@@ -96,13 +96,14 @@ export default function CustomersPage() {
           <p className="text-[#235347] mt-1 text-sm font-medium">Kelola informasi buku tamu dan WhatsApp pelanggan servis.</p>
         </div>
 
-        <Button onClick={handleOpenCreate} className="bg-[#235347] hover:bg-[#0B2B26] text-white">
-        <Plus className="w-4 h-4 mr-2" />
-        TAMBAH PELANGGAN
+        {/* UPDATE: Tombol melebar di HP (w-full) dan menyesuaikan isi di tablet/desktop (sm:w-auto) */}
+        <Button onClick={handleOpenCreate} className="w-full sm:w-auto bg-[#235347] hover:bg-[#0B2B26] text-white">
+          <Plus className="w-4 h-4 mr-2" />
+          TAMBAH PELANGGAN
         </Button>
 
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md w-[95vw] rounded-xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-[#051F20]">
                 {formData.id ? 'Perbarui Data Pelanggan' : 'Daftarkan Pelanggan Baru'}
@@ -142,7 +143,7 @@ export default function CustomersPage() {
       </div>
 
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[95vw] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2">
               <AlertCircle className="w-5 h-5" /> Hapus Data Pelanggan
@@ -151,11 +152,11 @@ export default function CustomersPage() {
               Tindakan ini tidak dapat dibatalkan. Apakah Anda yakin ingin menghapus pelanggan ini dari sistem?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteOpen(false)}>
               BATAL
             </Button>
-            <Button disabled={isDeletingCustomer} onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
+            <Button disabled={isDeletingCustomer} onClick={handleDelete} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
               {isDeletingCustomer ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
               {isDeletingCustomer ? 'MENGHAPUS...' : 'HAPUS DATA'}
             </Button>
@@ -163,28 +164,29 @@ export default function CustomersPage() {
         </DialogContent>
       </Dialog>
 
-      <Card className="border-[#DAF1DE] shadow-sm">
-        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 flex flex-row items-center justify-between">
+      <Card className="border-[#DAF1DE] shadow-sm overflow-hidden">
+        {/* UPDATE: Header Card ditumpuk di HP, Search bar lebar penuh di HP */}
+        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <CardTitle className="text-sm font-semibold flex items-center text-[#051F20]">
             <Users className="w-4 h-4 mr-2 text-[#8EB69B]" /> Daftar Pelanggan
           </CardTitle>
-          <div className="relative w-64">
+          <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <Input 
               placeholder="Cari nama / no. WA..." 
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-9 h-9 text-sm bg-gray-50/50"
+              className="pl-9 h-9 text-sm bg-gray-50/50 w-full"
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto w-full">
           {isCustomersLoading ? (
             <div className="flex justify-center items-center py-12 text-[#8EB69B]">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
           ) : (
-            <Table>
+            <Table className="min-w-[600px]">
               <TableHeader className="bg-gray-50/50">
                 <TableRow>
                   <TableHead className="font-semibold text-[#163832]">Nama Pelanggan</TableHead>

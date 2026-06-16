@@ -101,13 +101,14 @@ export default function StokPage() {
           <p className="text-[#235347] mt-1 text-sm font-medium">Manajemen stok sparepart dan pengaturan harga.</p>
         </div>
 
-        <Button onClick={handleOpenCreate} className="bg-[#235347] hover:bg-[#0B2B26] text-white">
+        {/* UPDATE: Tombol Tambah Barang lebar penuh di HP */}
+        <Button onClick={handleOpenCreate} className="w-full sm:w-auto bg-[#235347] hover:bg-[#0B2B26] text-white">
           <Plus className="w-4 h-4 mr-2" /> TAMBAH BARANG
         </Button>
 
         {/* MODAL FORM BARANG */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogContent className="sm:max-w-xl">
+          <DialogContent className="sm:max-w-xl w-[95vw] rounded-xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-[#051F20]">
                 {formData.id ? 'Perbarui Data Barang' : 'Tambah Barang Baru'}
@@ -120,7 +121,7 @@ export default function StokPage() {
                 <Input required placeholder="Contoh: Oli Yamalube 800ml" value={formData.nama} onChange={e => setFormData({ ...formData, nama: e.target.value })} />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-[#163832] uppercase">Harga Modal (Rp)</label>
                   <Input type="number" required min="0" value={formData.harga_beli || ''} onChange={e => setFormData({ ...formData, harga_beli: Number(e.target.value) })} />
@@ -131,7 +132,7 @@ export default function StokPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-[#163832] uppercase">Stok Awal Fisik</label>
                   <Input type="number" required min="0" value={formData.stok_fisik === 0 && !formData.id ? '' : formData.stok_fisik} onChange={e => setFormData({ ...formData, stok_fisik: Number(e.target.value) })} />
@@ -142,7 +143,7 @@ export default function StokPage() {
                 </div>
               </div>
 
-              <Button type="submit" disabled={isAddingBarang || isUpdatingBarang} className="w-full bg-[#235347] text-white">
+              <Button type="submit" disabled={isAddingBarang || isUpdatingBarang} className="w-full bg-[#235347] hover:bg-[#051F20] text-white mt-4">
                 {isAddingBarang || isUpdatingBarang ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 {isAddingBarang || isUpdatingBarang ? 'PROSES...' : 'SIMPAN BARANG'}
               </Button>
@@ -153,14 +154,14 @@ export default function StokPage() {
 
       {/* MODAL HAPUS */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md w-[95vw] rounded-xl">
           <DialogHeader>
             <DialogTitle className="text-red-600 flex items-center gap-2"><AlertCircle className="w-5 h-5" /> Hapus Barang</DialogTitle>
             <DialogDescription>Apakah Anda yakin ingin menghapus barang ini? Ini akan memengaruhi riwayat stok.</DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 flex gap-2 sm:justify-end">
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>BATAL</Button>
-            <Button disabled={isDeletingBarang} onClick={handleDelete} className="bg-red-600 hover:bg-red-700 text-white">
+          <DialogFooter className="mt-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => setIsDeleteOpen(false)}>BATAL</Button>
+            <Button disabled={isDeletingBarang} onClick={handleDelete} className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white">
               {isDeletingBarang ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : 'HAPUS BARANG'}
             </Button>
           </DialogFooter>
@@ -168,10 +169,11 @@ export default function StokPage() {
       </Dialog>
 
       {/* SECTION DAFTAR STOK */}
-      <Card className="border-[#DAF1DE] shadow-sm">
-        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <Card className="border-[#DAF1DE] shadow-sm overflow-hidden">
+        {/* UPDATE: Responsif Header ditumpuk & input text lebar penuh di HP */}
+        <CardHeader className="border-b border-[#DAF1DE]/50 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <CardTitle className="text-sm font-semibold flex items-center text-[#051F20]"><Boxes className="w-4 h-4 mr-2 text-[#8EB69B]" /> Daftar Stok Gudang</CardTitle>
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full sm:w-80">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <Input 
               placeholder="Cari nama barang..." 
@@ -180,15 +182,15 @@ export default function StokPage() {
                 setSearch(e.target.value)
                 setCurrentPage(1)
               }} 
-              className="pl-9 h-9 text-sm" 
+              className="pl-9 h-9 text-sm w-full" 
             />
           </div>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="p-0 overflow-x-auto w-full">
           {isBarangLoading ? (
             <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#8EB69B]" /></div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="min-w-[800px]">
               <Table>
                 <TableHeader className="bg-gray-50/50">
                   <TableRow>
@@ -226,11 +228,11 @@ export default function StokPage() {
         
         {/* PAGINATION CONTROLS */}
         {!isBarangLoading && filteredBarang.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50/30">
-            <p className="text-xs text-gray-500 font-medium">
+          <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50/30 gap-4">
+            <p className="text-xs text-gray-500 font-medium text-center sm:text-left">
               Menampilkan {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, filteredBarang.length)} dari {filteredBarang.length} data
             </p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 w-full sm:w-auto justify-center">
               <Button 
                 variant="outline" 
                 size="sm" 
