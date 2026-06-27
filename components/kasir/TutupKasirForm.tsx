@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Trash2, AlertTriangle, Image as ImageIcon } from 'lucide-react'
+import { Plus, Trash2, AlertTriangle, Image as ImageIcon, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface TutupKasirFormProps {
@@ -30,20 +30,18 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  // State angka aktual
   const [cashAktual, setCashAktual] = useState<number>(0)
   const [qrisAktual, setQrisAktual] = useState<number>(0)
   const [transferAktual, setTransferAktual] = useState<number>(0)
   const [catatan, setCatatan] = useState<string>('')
+  const [pinOwner, setPinOwner] = useState<string>('')
   
-  // State pengeluaran
   const [pengeluaranList, setPengeluaranList] = useState<PengeluaranInput[]>([])
   const [newJumlah, setNewJumlah] = useState<number>(0)
   const [newKeterangan, setNewKeterangan] = useState<string>('')
   const [sumberDana, setSumberDana] = useState<'cash' | 'rekening'>('cash')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
-  // Fungsi Format Real-time Input
   const formatInputRibuan = (val: number) => {
     if (!val || val === 0) return ''
     return val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
@@ -54,7 +52,6 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
     return isNaN(parsed) ? 0 : parsed
   }
 
-  // Query Summary Transaksi
   const { data: systemSummary, isLoading } = useQuery({
     queryKey: ['summary-tutup-sesi', sesiAktif.id],
     queryFn: async () => {
@@ -100,7 +97,6 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
     enabled: !!sesiAktif?.id
   })
 
-  // Fungsi Tambah Pengeluaran Manual (Klik Tombol)
   const handleAddPengeluaran = () => {
     if (!newJumlah || !newKeterangan) {
       toast.error('Jumlah dan keterangan wajib diisi')
@@ -121,7 +117,6 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
     setNewKeterangan('')
     setSelectedFile(null)
     
-    // Reset file input UI
     const fileInput = document.getElementById('file-upload') as HTMLInputElement
     if (fileInput) fileInput.value = ''
   }
@@ -130,10 +125,9 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
     setPengeluaranList(pengeluaranList.filter((_, i) => i !== index))
   }
 
-  // KALKULASI PENGELUARAN DINAMIS (Termasuk yang belum di-klik "Tambah")
   const pendingJumlah = (newJumlah > 0 && newKeterangan.trim() !== '') ? newJumlah : 0
   const totalPengeluaranList = pengeluaranList.reduce((acc, curr) => acc + curr.jumlah, 0)
-  const totalPengeluaran = totalPengeluaranList + pendingJumlah // <-- Auto detect form menggantung
+  const totalPengeluaran = totalPengeluaranList + pendingJumlah 
 
   const modalAwal = Number(sesiAktif.modal_awal)
   const cashSistem = systemSummary?.cashSistem || 0
@@ -144,14 +138,21 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
   const selisihQris = qrisAktual - qrisSistem
   const selisihTransfer = transferAktual - transferSistem
 
-  // Mutasi Submit Rekap Sesi
+  const handleExecuteTutupSesi = () => {
+    const validPin = process.env.NEXT_PUBLIC_KASIR_PIN || '123456'
+    if (pinOwner !== validPin) {
+      toast.error("PIN/Password Owner salah!")
+      return
+    }
+    tutupKasirMutation.mutate()
+  }
+
   const tutupKasirMutation = useMutation({
     mutationFn: async () => {
       if (systemSummary?.adaTiketSelesai) {
         throw new Error('Selesaikan seluruh pembayaran antrean sebelum menutup shift.')
       }
 
-      // OTOMATIS GABUNGKAN INPUT YANG MENGGANTUNG SEBELUM SUBMIT
       const finalPengeluaranList = [...pengeluaranList]
       if (newJumlah > 0 && newKeterangan.trim() !== '') {
         finalPengeluaranList.push({
@@ -164,7 +165,6 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
         })
       }
 
-      // 1. Kunci dan Tutup Sesi di Database
       const { error: sesiError } = await supabase.rpc('tutup_sesi_kasir', {
         p_id: sesiAktif.id,
         p_cash_aktual: cashAktual,
@@ -182,7 +182,6 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
 
       if (sesiError) throw sesiError
 
-      // 2. Upload Struk & Simpan Pengeluaran
       if (finalPengeluaranList.length > 0) {
         const pengeluaranPayload = await Promise.all(finalPengeluaranList.map(async (p) => {
           let fileUrl = ''
@@ -223,155 +222,149 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
       return true
     },
     onSuccess: () => {
-      toast.success('Sesi ditutup & bukti berhasil diunggah. Terima Kasih!')
+      toast.success('Sesi ditutup & rekapan berhasil dikirim ke Owner!')
       queryClient.invalidateQueries({ queryKey: ['sesi-aktif', userId] })
-      router.push('/kasir/dashboard')
+      router.replace('/kasir/tiket/aktif')
     },
     onError: (error: any) => {
       toast.error(error.message || 'Gagal menutup sesi kasir')
     }
   })
 
-  if (isLoading) return <div className="text-sm text-[#163832] p-4">Memuat form penutupan shift...</div>
+  if (isLoading) return <div className="text-sm font-bold text-[#163832] p-8">Memuat form penutupan shift...</div>
 
   const formatRupiah = (val: number) => {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
   }
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {systemSummary?.adaTiketSelesai && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-900 p-4 rounded-lg flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-600" />
+        <div className="bg-rose-50 border border-rose-200 text-rose-900 p-5 rounded-2xl flex items-start gap-4 shadow-sm">
+          <AlertTriangle className="w-6 h-6 flex-shrink-0 mt-0.5 text-rose-600" />
           <div>
-            <h5 className="font-semibold">Penutupan Kasir Terkunci</h5>
-            <p className="text-sm mt-0.5">Selesaikan seluruh pembayaran antrean sebelum menutup shift.</p>
+            <h5 className="font-black text-lg">Tindakan Terkunci</h5>
+            <p className="text-sm mt-1 font-medium">Selesaikan seluruh pembayaran antrean sebelum menutup shift.</p>
           </div>
         </div>
       )}
 
-      {/* Bagian 1: Input Aktual */}
-      <Card className="bg-[#FAF7F2] border-[#E6DFD3]">
-        <CardHeader className="border-b border-[#E6DFD3]/60">
-          <CardTitle className="text-base font-bold text-[#051F20]">Input Aktual Uang Fisik & Mutasi</CardTitle>
+      <Card className="bg-white border-0 shadow-sm rounded-3xl overflow-hidden">
+        <CardHeader className="bg-[#051F20] text-white py-5">
+          <CardTitle className="text-lg font-black tracking-wider">Laci & Mutasi Aktual</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pt-4">
+        <CardContent className="space-y-5 pt-6 bg-[#FAF7F2]">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#163832]">Total Uang Tunai / Cash Fisik (Laci Kasir)</label>
+            <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Cash Laci Akhir</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#163832] font-bold">Rp</span>
               <Input 
                 type="text" value={formatInputRibuan(cashAktual)} onChange={(e) => setCashAktual(parseInputRibuan(e.target.value))}
-                placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                placeholder="0" className="pl-12 h-14 text-xl font-black bg-white border-0 shadow-sm text-[#051F20] focus-visible:ring-2 focus-visible:ring-[#8EB69B] rounded-2xl"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#163832]">Total QRIS Aktual (Aplikasi / Mutasi)</label>
+            <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Total Mutasi QRIS</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#163832] font-bold">Rp</span>
               <Input 
                 type="text" value={formatInputRibuan(qrisAktual)} onChange={(e) => setQrisAktual(parseInputRibuan(e.target.value))}
-                placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                placeholder="0" className="pl-12 h-14 text-xl font-black bg-white border-0 shadow-sm text-[#051F20] focus-visible:ring-2 focus-visible:ring-[#8EB69B] rounded-2xl"
               />
             </div>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#163832]">Total Transfer Bank Aktual</label>
+            <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Total Transfer Bank</label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#163832] font-bold">Rp</span>
               <Input 
                 type="text" value={formatInputRibuan(transferAktual)} onChange={(e) => setTransferAktual(parseInputRibuan(e.target.value))}
-                placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                placeholder="0" className="pl-12 h-14 text-xl font-black bg-white border-0 shadow-sm text-[#051F20] focus-visible:ring-2 focus-visible:ring-[#8EB69B] rounded-2xl"
               />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Bagian 2: Pengeluaran Kasir */}
-      <Card className="bg-[#FAF7F2] border-[#E6DFD3]">
-        <CardHeader className="border-b border-[#E6DFD3]/60">
-          <CardTitle className="text-base font-bold text-[#051F20]">Biaya & Pengeluaran Mendadak</CardTitle>
+      <Card className="bg-white border-0 shadow-sm rounded-3xl overflow-hidden">
+        <CardHeader className="bg-[#051F20] text-white py-5">
+          <CardTitle className="text-lg font-black tracking-wider">Pengeluaran Operasional</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 pt-4">
-          <div className="grid gap-4 md:grid-cols-2 bg-[#E1EFE6]/40 p-4 rounded-lg border border-[#8EB69B]/30">
+        <CardContent className="space-y-5 pt-6 bg-[#FAF7F2]">
+          <div className="grid gap-5 md:grid-cols-2 bg-white p-5 rounded-2xl border-0 shadow-sm">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#163832] uppercase">Keterangan Pengeluaran</label>
+              <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Rincian Keperluan</label>
               <Input 
                 type="text" value={newKeterangan} onChange={(e) => setNewKeterangan(e.target.value)}
-                placeholder="Contoh: Beli oli cadangan" className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                placeholder="Contoh: Beli token listrik" className="h-12 bg-[#FAF7F2] border-[#E6DFD3] focus-visible:ring-[#8EB69B] text-[#051F20] rounded-xl"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#163832] uppercase">Jumlah Pengeluaran</label>
+              <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Total Biaya</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#163832] font-semibold text-sm">Rp</span>
                 <Input 
                   type="text" value={formatInputRibuan(newJumlah)} onChange={(e) => setNewJumlah(parseInputRibuan(e.target.value))}
-                  placeholder="0" className="pl-10 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+                  placeholder="0" className="pl-10 h-12 font-bold bg-[#FAF7F2] border-[#E6DFD3] focus-visible:ring-[#8EB69B] text-[#051F20] rounded-xl"
                 />
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#163832] uppercase">Dana Yang Digunakan</label>
-              <div className="flex gap-3 h-10 items-center">
-                <label className="flex items-center gap-2 text-sm text-[#163832] font-medium cursor-pointer">
-                  <input 
-                    type="radio" name="sumberDana" checked={sumberDana === 'cash'} onChange={() => setSumberDana('cash')} className="accent-[#235347] w-4 h-4"
-                  /> Uang Cash / Laci
+              <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Metode Bayar Pengeluaran</label>
+              <div className="flex gap-4 h-12 bg-[#FAF7F2] border border-[#E6DFD3] rounded-xl px-4 items-center">
+                <label className="flex items-center gap-2 text-sm text-[#051F20] font-bold cursor-pointer">
+                  <input type="radio" name="sumberDana" checked={sumberDana === 'cash'} onChange={() => setSumberDana('cash')} className="accent-[#235347] w-4 h-4" /> Uang Laci
                 </label>
-                <label className="flex items-center gap-2 text-sm text-[#163832] font-medium cursor-pointer">
-                  <input 
-                    type="radio" name="sumberDana" checked={sumberDana === 'rekening'} onChange={() => setSumberDana('rekening')} className="accent-[#235347] w-4 h-4"
-                  /> Rekening / Transfer
+                <label className="flex items-center gap-2 text-sm text-[#051F20] font-bold cursor-pointer">
+                  <input type="radio" name="sumberDana" checked={sumberDana === 'rekening'} onChange={() => setSumberDana('rekening')} className="accent-[#235347] w-4 h-4" /> Rek. Owner
                 </label>
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold text-[#163832] uppercase flex items-center gap-1">
-                <ImageIcon className="w-3.5 h-3.5 text-[#235347]" /> Upload Foto Struk Nota
+              <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest flex items-center gap-1">
+                <ImageIcon className="w-3.5 h-3.5" /> Upload Bukti/Nota
               </label>
               <Input 
                 id="file-upload" type="file" accept="image/*"
                 onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white file:text-xs file:bg-[#E1EFE6] file:text-[#235347] file:border-0 cursor-pointer"
+                className="h-12 border-[#E6DFD3] focus-visible:ring-[#8EB69B] bg-[#FAF7F2] file:mt-1 file:text-[10px] file:bg-[#8EB69B] file:text-[#051F20] file:font-bold file:px-3 file:rounded-lg file:border-0 cursor-pointer rounded-xl"
               />
             </div>
             <Button 
               type="button" onClick={handleAddPengeluaran} 
-              className="w-full md:col-span-2 bg-[#235347] hover:bg-[#051F20] text-white font-semibold mt-2"
+              className="w-full md:col-span-2 h-12 bg-[#235347] hover:bg-[#051F20] text-white font-black tracking-widest rounded-xl mt-2"
             >
-              <Plus className="w-4 h-4 mr-1" /> Tambahkan Pengeluaran
+              <Plus className="w-5 h-5 mr-1" /> SIMPAN PENGELUARAN
             </Button>
           </div>
 
           {pengeluaranList.length > 0 && (
-            <div className="w-full overflow-x-auto border border-[#E6DFD3] rounded-lg">
-              <Table className="bg-white min-w-[500px]">
-                <TableHeader className="bg-[#FAF7F2]">
+            <div className="w-full overflow-x-auto bg-white rounded-2xl shadow-sm">
+              <Table className="min-w-[500px]">
+                <TableHeader className="bg-[#E6DFD3]/40">
                   <TableRow>
-                    <TableHead className="text-[#163832] font-bold">Keterangan</TableHead>
-                    <TableHead className="text-[#163832] font-bold">File Nota</TableHead>
-                    <TableHead className="text-right text-[#163832] font-bold">Jumlah</TableHead>
+                    <TableHead className="text-[#051F20] font-bold">Keterangan</TableHead>
+                    <TableHead className="text-[#051F20] font-bold">File Nota</TableHead>
+                    <TableHead className="text-right text-[#051F20] font-bold">Jumlah</TableHead>
                     <TableHead className="w-16"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {pengeluaranList.map((p, idx) => (
-                    <TableRow key={idx} className="border-b border-[#E6DFD3]/60">
-                      <TableCell className="font-medium text-[#051F20]">
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-sm mr-2 font-bold whitespace-nowrap ${p.sumberDana === 'cash' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
-                          {p.sumberDana.toUpperCase()}
+                    <TableRow key={idx} className="border-b border-[#E6DFD3]/40 hover:bg-[#FAF7F2]">
+                      <TableCell className="font-bold text-[#051F20]">
+                        <span className={`text-[9px] px-2 py-1 rounded-md mr-2 tracking-widest uppercase ${p.sumberDana === 'cash' ? 'bg-[#8EB69B] text-[#051F20]' : 'bg-blue-200 text-blue-900'}`}>
+                          {p.sumberDana}
                         </span>
                         {p.keterangan}
                       </TableCell>
-                      <TableCell className="text-xs text-slate-500 italic max-w-[150px] truncate">
-                        {p.fotoNama || 'Tidak ada'}
+                      <TableCell className="text-xs text-slate-400 max-w-[120px] truncate">
+                        {p.fotoNama || '-'}
                       </TableCell>
-                      <TableCell className="text-right text-[#051F20] font-bold">{formatRupiah(p.jumlah)}</TableCell>
+                      <TableCell className="text-right text-[#051F20] font-black">{formatRupiah(p.jumlah)}</TableCell>
                       <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemovePengeluaran(idx)} className="text-rose-600 hover:text-rose-700 hover:bg-rose-50">
+                        <Button variant="ghost" size="icon" onClick={() => handleRemovePengeluaran(idx)} className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl">
                           <Trash2 className="w-4 h-4" />
                         </Button>
                       </TableCell>
@@ -384,26 +377,35 @@ export default function TutupKasirForm({ sesiAktif, userId }: TutupKasirFormProp
         </CardContent>
       </Card>
 
-      {/* Catatan Tambahan & Submit */}
-      <Card className="bg-[#FAF7F2] border-[#E6DFD3]">
-        <CardContent className="pt-6 space-y-4">
+      <Card className="bg-white border-0 shadow-sm rounded-3xl">
+        <CardContent className="pt-8 space-y-6">
           <div className="space-y-2">
-            <label className="text-sm font-semibold text-[#163832]">Catatan Tambahan Shift (Opsional)</label>
+            <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest">Catatan Shift (Opsional)</label>
             <Input 
               type="text" value={catatan} onChange={(e) => setCatatan(e.target.value)}
-              placeholder="Tambahkan informasi shift hari ini" className="border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
+              placeholder="Tambahkan info untuk Owner jika perlu..." className="h-14 bg-[#FAF7F2] border-[#E6DFD3] focus-visible:ring-[#8EB69B] text-[#051F20] rounded-2xl"
+            />
+          </div>
+
+          <div className="p-5 bg-[#E1EFE6] rounded-2xl border border-[#8EB69B]/50 space-y-3">
+            <label className="text-[11px] font-bold text-[#163832] uppercase tracking-widest flex items-center gap-1">
+              <KeyRound className="w-4 h-4" /> Otorisasi PIN Owner
+            </label>
+            <Input 
+              type="password" value={pinOwner} onChange={(e) => setPinOwner(e.target.value)}
+              placeholder="Masukkan PIN" className="h-14 text-center text-xl font-black tracking-widest bg-white border-0 shadow-sm text-[#051F20] focus-visible:ring-2 focus-visible:ring-[#8EB69B] rounded-2xl"
             />
           </div>
 
           <Button 
-            onClick={() => tutupKasirMutation.mutate()} 
-            className="w-full h-14 text-base font-bold bg-[#235347] hover:bg-[#051F20] text-white shadow-md transition-all tracking-wider"
+            onClick={handleExecuteTutupSesi} 
+            className="w-full h-16 text-sm font-black bg-[#235347] hover:bg-[#051F20] text-white shadow-md transition-all tracking-widest rounded-2xl"
             disabled={tutupKasirMutation.isPending || systemSummary?.adaTiketSelesai}
           >
-            {tutupKasirMutation.isPending ? 'Mengunci & Mengunggah Data...' : 'SELESAIKAN SHIFT & KIRIM REKAPAN'}
+            {tutupKasirMutation.isPending ? 'MENGUNCI & MENGUNGGAH DATA...' : 'SELESAIKAN SHIFT SEKARANG'}
           </Button>
         </CardContent>
       </Card>
     </div>
   )
-}                                 
+}

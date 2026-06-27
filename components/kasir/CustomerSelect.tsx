@@ -8,11 +8,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { UserPlus, Search, Check, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
+// INTERFACE_CUSTOMER_SELECT_PROPS
 interface CustomerSelectProps {
   onSelect: (customer: Customer | null) => void
   selectedCustomer: Customer | null
 }
 
+// COMPONENT_CUSTOMER_SELECT
 export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
@@ -25,6 +27,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
   const { data: searchResults, isLoading } = useSearchCustomers(searchTerm)
   const createCustomer = useCreateCustomer()
 
+  // EFFECT_HANDLE_CLICK_OUTSIDE
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -35,6 +38,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [wrapperRef])
 
+  // HANDLE_CREATE_NEW_CUSTOMER
   const handleCreateNewCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -60,12 +64,13 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
     }
   }
 
+  // COMPONENT_RENDER
   return (
     <div className="relative w-full" ref={wrapperRef}>
       {selectedCustomer ? (
         <div className="flex items-center justify-between p-3 bg-[#E1EFE6]/40 border border-[#8EB69B] rounded-lg">
           <div>
-            <p className="text-sm font-bold text-[#051F20]">{selectedCustomer.nama}</p>
+            <p className="text-sm font-bold text-[#051F20]">{selectedCustomer.nama} <span className="text-[#8EB69B]">({selectedCustomer.id})</span></p>
             <p className="text-xs font-medium text-[#163832] mt-0.5">{selectedCustomer.no_telp}</p>
           </div>
           <Button 
@@ -82,7 +87,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8EB69B]" />
           <Input
             type="text"
-            placeholder="Cari nama atau no. HP (min. 2 huruf)..."
+            placeholder="Cari ID, Nama, atau No. HP..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
@@ -111,7 +116,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-[#FAF7F2] cursor-pointer border-b border-slate-50 last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-bold text-[#051F20]">{cust.nama}</p>
+                        <p className="text-sm font-bold text-[#051F20]">{cust.nama} <span className="text-xs text-[#8EB69B]">({cust.id})</span></p>
                         <p className="text-xs text-[#163832]">{cust.no_telp}</p>
                       </div>
                       <Check className="w-4 h-4 text-[#235347] opacity-0 hover:opacity-100" />
@@ -140,13 +145,12 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
         </div>
       )}
 
+      {/* COMPONENT_MODAL_CREATE */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md bg-[#FAF7F2] border-[#E6DFD3]">
           <DialogHeader>
             <DialogTitle className="text-xl text-[#051F20]">Daftar Customer Baru</DialogTitle>
-            <DialogDescription className="hidden">
-              Isi form berikut untuk menambahkan data pelanggan baru ke sistem.
-            </DialogDescription>
+            <DialogDescription className="hidden">Isi form berikut.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateNewCustomer} className="space-y-4 mt-2">
             <div className="space-y-2">

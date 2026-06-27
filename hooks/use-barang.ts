@@ -1,9 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-// INTERFACE BARANG
+// INTERFACE_BARANG_SKU
 export interface Barang {
-  id: string
+  sku: string
   nama: string
   barcode: string | null
   harga_beli: number
@@ -15,10 +15,10 @@ export interface Barang {
   aktif: boolean
 }
 
-// INTERFACE RIWAYAT
+// INTERFACE_RIWAYAT_BARANG
 export interface RiwayatBarang {
   id: string
-  barang_id: string
+  barang_sku: string
   keterangan: string
   waktu: string
   barang?: {
@@ -26,7 +26,7 @@ export interface RiwayatBarang {
   }
 }
 
-// HOOK RIWAYAT GLOBAL
+// USE_RIWAYAT_BARANG_QUERY
 export function useRiwayatBarang() {
   const supabase = createClient()
   return useQuery({
@@ -43,12 +43,12 @@ export function useRiwayatBarang() {
   })
 }
 
-// HOOK UTAMA BARANG
+// USE_BARANG_HOOK
 export function useBarang() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
-  // QUERY FETCH BARANG
+  // GET_BARANG_QUERY
   const query = useQuery({
     queryKey: ['barang'],
     queryFn: async () => {
@@ -62,12 +62,13 @@ export function useBarang() {
     }
   })
 
-  // MUTATION CREATE BARANG
+  // CREATE_BARANG_MUTATION
   const createMutation = useMutation({
-    mutationFn: async (payload: Omit<Barang, 'id' | 'stok_reserved' | 'stok_tersedia' | 'aktif'>) => {
+    mutationFn: async (payload: Omit<Barang, 'stok_reserved' | 'stok_tersedia' | 'aktif'>) => {
       const { data, error } = await supabase
         .from('barang')
         .insert({
+          sku: payload.sku,
           nama: payload.nama,
           barcode: payload.barcode || null,
           harga_beli: payload.harga_beli,
@@ -79,7 +80,7 @@ export function useBarang() {
         .single()
 
       if (error) {
-        if (error.code === '23505') throw new Error('Nama barang sudah ada (mirip) atau Barcode terdaftar!')
+        if (error.code === '23505') throw new Error('SKU, Nama, atau Barcode sudah terdaftar!')
         throw error
       }
       return data
@@ -90,11 +91,11 @@ export function useBarang() {
     }
   })
 
-  // MUTATION UPDATE BARANG
+  // UPDATE_BARANG_MUTATION
   const updateMutation = useMutation({
-    mutationFn: async (payload: Partial<Barang> & { id: string }) => {
+    mutationFn: async (payload: Partial<Barang> & { sku: string }) => {
       const { error } = await supabase.rpc('update_barang_aman', {
-        p_id: payload.id,
+        p_sku: payload.sku,
         p_nama: payload.nama,
         p_barcode: payload.barcode || null,
         p_harga_beli: payload.harga_beli,
@@ -104,7 +105,7 @@ export function useBarang() {
       })
 
       if (error) {
-        if (error.code === '23505') throw new Error('Nama barang sudah ada (mirip) atau Barcode terdaftar!')
+        if (error.code === '23505') throw new Error('Nama barang sudah ada atau Barcode terdaftar!')
         throw error
       }
     },
@@ -114,10 +115,10 @@ export function useBarang() {
     }
   })
 
-  // MUTATION DELETE BARANG
+  // DELETE_BARANG_MUTATION
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('barang').delete().eq('id', id)
+    mutationFn: async (sku: string) => {
+      const { error } = await supabase.from('barang').delete().eq('sku', sku)
       if (error) throw error
     },
     onSuccess: () => {
