@@ -19,8 +19,19 @@ export default function MekanikLayout({ children }: { children: React.ReactNode 
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return; }
-      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
-      if (profile) setUserName(profile.full_name)
+      
+      const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single()
+      
+      if (profile) {
+        if (profile.role !== 'mekanik') {
+          toast.error('Akses ditolak. Anda login bukan sebagai Mekanik.')
+          if (profile.role === 'kasir') router.push('/kasir/tiket/aktif')
+          else if (profile.role === 'owner') router.push('/owner/dashboard')
+          else router.push('/login')
+          return
+        }
+        setUserName(profile.full_name)
+      }
     }
     getUser()
   }, [router, supabase])

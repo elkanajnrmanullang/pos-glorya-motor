@@ -17,7 +17,6 @@ export default function TiketAktifPage() {
   
   const [userId, setUserId] = useState<string | undefined>(undefined)
 
-  // GET_USER_SESSION
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -26,7 +25,6 @@ export default function TiketAktifPage() {
     getUser()
   }, [supabase])
 
-  // FETCH_UNPAID_TICKETS
   const { data: tiketAktif, isLoading } = useQuery({
     queryKey: ['tiket-aktif'],
     queryFn: async () => {
@@ -40,7 +38,6 @@ export default function TiketAktifPage() {
     }
   })
 
-  // INIT_REALTIME_SUBSCRIPTION_TIKET_SERVIS
   useEffect(() => {
     const channel = supabase
       .channel('realtime-tiket-kasir')
@@ -56,26 +53,23 @@ export default function TiketAktifPage() {
     return () => { supabase.removeChannel(channel) }
   }, [supabase, queryClient])
 
-  if (isLoading) return <div className="text-sm font-bold tracking-widest text-[#163832] uppercase p-8">Memuat antrean...</div>
+  if (isLoading) return <div className="text-sm font-medium text-slate-500 p-8">Memuat antrean...</div>
 
-  // CATEGORIZE_TICKETS_BY_STATUS
   const tiketMenunggu = tiketAktif?.filter(t => t.status === 'menunggu') || []
   const tiketDikerjakan = tiketAktif?.filter(t => t.status === 'dikerjakan') || []
   const tiketSelesai = tiketAktif?.filter(t => t.status === 'selesai') || []
 
-  // FORMAT_TIME_HELPER
   const formatWaktu = (dateString: string) => new Date(dateString).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
-  // COMPONENT_TIKET_CARD_MODERN
   const TiketCard = ({ tiket }: { tiket: any }) => (
-    <Card className={`border-0 shadow-sm relative overflow-hidden rounded-3xl transition-all duration-200 hover:shadow-md ${tiket.status === 'selesai' ? 'bg-[#E1EFE6]' : 'bg-white'}`}>
-      <CardContent className="p-5 space-y-4">
+    <Card className={`border border-[#E6DFD3] shadow-sm relative overflow-hidden rounded-xl transition-all duration-200 hover:border-[#8EB69B] hover:shadow-md ${tiket.status === 'selesai' ? 'bg-[#E1EFE6]' : 'bg-white'}`}>
+      <CardContent className="p-4 space-y-4">
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-2xl font-black tracking-tight text-[#051F20]">{tiket.nomor_antrian}</h3>
-            <p className="text-xs font-black text-[#8EB69B] uppercase tracking-widest mt-0.5">{tiket.plat_motor}</p>
+            <h3 className="text-lg font-bold text-[#051F20] tracking-tight">{tiket.nomor_antrian}</h3>
+            <p className="text-xs font-semibold text-slate-500 mt-0.5">{tiket.plat_motor}</p>
           </div>
-          <div className={`text-[10px] font-black px-3 py-1.5 rounded-xl uppercase tracking-widest ${
+          <div className={`text-[10px] font-semibold px-2.5 py-1 rounded-md uppercase tracking-wider ${
             tiket.status === 'menunggu' ? 'bg-amber-100 text-amber-800' :
             tiket.status === 'dikerjakan' ? 'bg-blue-100 text-blue-800' :
             'bg-[#235347] text-white shadow-sm'
@@ -84,87 +78,86 @@ export default function TiketAktifPage() {
           </div>
         </div>
 
-        <div className="bg-[#FAF7F2] p-3 rounded-2xl space-y-2 border border-[#E6DFD3]/40">
+        <div className="bg-slate-50 p-3 rounded-lg space-y-2 border border-slate-100">
           <div className="flex items-center gap-2 text-sm text-[#051F20]">
-            <User className="w-4 h-4 text-[#8EB69B]" /> 
-            <span className="font-bold truncate max-w-[150px]">{tiket.customers?.nama}</span>
+            <User className="w-4 h-4 text-slate-400" /> 
+            <span className="font-semibold truncate max-w-[150px]">{tiket.customers?.nama}</span>
           </div>
-          <div className="text-[10px] font-bold text-[#163832] flex items-center gap-2 uppercase tracking-widest">
-            <span className="bg-white px-2 py-1 rounded-md shadow-sm">
-              {tiket.tipe === 'jasa' ? 'HANYA JASA' : 'SERVIS + PART'}
+          <div className="text-[10px] font-semibold text-slate-500 flex items-center gap-2 uppercase tracking-wide">
+            <span className="bg-white px-2 py-1 rounded-md border border-slate-200">
+              {tiket.tipe === 'jasa' ? 'Hanya Jasa' : 'Servis + Part'}
             </span>
-            <span>MASUK: {formatWaktu(tiket.waktu_masuk)}</span>
+            <span>Masuk: {formatWaktu(tiket.waktu_masuk)}</span>
           </div>
         </div>
 
         {tiket.status !== 'menunggu' && (
           <Button 
-            className={`w-full h-12 rounded-2xl font-black tracking-widest text-xs shadow-sm transition-all ${
-              tiket.status === 'selesai' ? 'bg-[#051F20] hover:bg-black text-white' : 'bg-white border-2 border-[#E6DFD3] text-[#051F20] hover:border-[#8EB69B] hover:bg-[#FAF7F2]'
+            className={`w-full h-10 rounded-lg font-semibold text-xs shadow-sm transition-all ${
+              tiket.status === 'selesai' ? 'bg-[#051F20] hover:bg-[#163832] text-white' : 'bg-white border border-[#E6DFD3] text-[#051F20] hover:bg-slate-50'
             }`}
             onClick={() => router.push(`/kasir/tiket/${tiket.id}`)}
           >
-            {tiket.status === 'selesai' ? 'PROSES PELUNASAN' : 'KELOLA BARANG TIKET'} <ArrowRight className="w-4 h-4 ml-1.5" />
+            {tiket.status === 'selesai' ? 'Proses Pelunasan' : 'Kelola Barang Tiket'} <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
           </Button>
         )}
       </CardContent>
     </Card>
   )
 
-  // RENDER_MAIN_DASHBOARD
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-12">
+    <div className="max-w-7xl mx-auto space-y-6 pb-12 font-sans">
       <div>
-        <h2 className="text-3xl font-black text-[#051F20] flex items-center gap-3 tracking-tight">
-          <Clock className="w-8 h-8 text-[#8EB69B]" /> Monitor Antrean
+        <h2 className="text-2xl font-semibold text-[#051F20] tracking-tight flex items-center gap-2">
+          <Clock className="w-6 h-6 text-[#8EB69B]" /> Monitor Antrean
         </h2>
-        <p className="text-sm font-medium text-[#163832] mt-2">Pusat kendali motor yang sedang berada di bengkel.</p>
+        <p className="text-sm text-slate-500 mt-1">Pusat kendali motor yang sedang berada di bengkel.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         
         {/* COLUMN_MENUNGGU */}
-        <div className="bg-[#FAF7F2] rounded-[2.5rem] p-5 space-y-4 border border-[#E6DFD3]/60">
-          <div className="flex items-center justify-between px-2 pt-2">
-            <h3 className="font-black text-[#051F20] flex items-center gap-2 tracking-wider">
-              <AlertCircle className="w-5 h-5 text-amber-500" /> MENUNGGU
+        <div className="bg-slate-50 rounded-2xl p-4 space-y-4 border border-[#E6DFD3]">
+          <div className="flex items-center justify-between px-2 pt-1">
+            <h3 className="font-semibold text-sm text-[#051F20] flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500" /> Menunggu
             </h3>
-            <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-black text-sm text-[#051F20] shadow-sm">{tiketMenunggu.length}</span>
+            <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center font-bold text-xs text-[#051F20] border border-[#E6DFD3]">{tiketMenunggu.length}</span>
           </div>
           {tiketMenunggu.length === 0 ? (
-            <div className="text-xs text-slate-400 font-bold text-center py-10 uppercase tracking-widest">KOSONG</div>
+            <div className="text-xs text-slate-400 font-medium text-center py-8">Tidak ada antrean</div>
           ) : (
-            <div className="grid gap-4">{tiketMenunggu.map(t => <TiketCard key={t.id} tiket={t} />)}</div>
+            <div className="grid gap-3">{tiketMenunggu.map(t => <TiketCard key={t.id} tiket={t} />)}</div>
           )}
         </div>
 
         {/* COLUMN_DIKERJAKAN */}
-        <div className="bg-[#FAF7F2] rounded-[2.5rem] p-5 space-y-4 border border-[#E6DFD3]/60">
-          <div className="flex items-center justify-between px-2 pt-2">
-            <h3 className="font-black text-[#051F20] flex items-center gap-2 tracking-wider">
-              <Wrench className="w-5 h-5 text-blue-500" /> DIKERJAKAN
+        <div className="bg-slate-50 rounded-2xl p-4 space-y-4 border border-[#E6DFD3]">
+          <div className="flex items-center justify-between px-2 pt-1">
+            <h3 className="font-semibold text-sm text-[#051F20] flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-blue-500" /> Dikerjakan
             </h3>
-            <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-black text-sm text-[#051F20] shadow-sm">{tiketDikerjakan.length}</span>
+            <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center font-bold text-xs text-[#051F20] border border-[#E6DFD3]">{tiketDikerjakan.length}</span>
           </div>
           {tiketDikerjakan.length === 0 ? (
-            <div className="text-xs text-slate-400 font-bold text-center py-10 uppercase tracking-widest">KOSONG</div>
+            <div className="text-xs text-slate-400 font-medium text-center py-8">Tidak ada pengerjaan</div>
           ) : (
-            <div className="grid gap-4">{tiketDikerjakan.map(t => <TiketCard key={t.id} tiket={t} />)}</div>
+            <div className="grid gap-3">{tiketDikerjakan.map(t => <TiketCard key={t.id} tiket={t} />)}</div>
           )}
         </div>
 
         {/* COLUMN_SELESAI */}
-        <div className="bg-[#E1EFE6] rounded-[2.5rem] p-5 space-y-4 shadow-inner border border-[#8EB69B]/40">
-          <div className="flex items-center justify-between px-2 pt-2">
-            <h3 className="font-black text-[#051F20] flex items-center gap-2 tracking-wider">
-              <CheckCircle2 className="w-5 h-5 text-[#235347]" /> SIAP BAYAR
+        <div className="bg-[#E1EFE6]/30 rounded-2xl p-4 space-y-4 border border-[#8EB69B]/40">
+          <div className="flex items-center justify-between px-2 pt-1">
+            <h3 className="font-semibold text-sm text-[#051F20] flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#235347]" /> Siap Bayar
             </h3>
-            <span className="w-8 h-8 rounded-full bg-white flex items-center justify-center font-black text-sm text-[#051F20] shadow-sm">{tiketSelesai.length}</span>
+            <span className="w-6 h-6 rounded-full bg-white flex items-center justify-center font-bold text-xs text-[#051F20] border border-[#E6DFD3]">{tiketSelesai.length}</span>
           </div>
           {tiketSelesai.length === 0 ? (
-            <div className="text-xs text-[#8EB69B] font-bold text-center py-10 uppercase tracking-widest">KOSONG</div>
+            <div className="text-xs text-slate-400 font-medium text-center py-8">Tidak ada tiket selesai</div>
           ) : (
-            <div className="grid gap-4">{tiketSelesai.map(t => <TiketCard key={t.id} tiket={t} />)}</div>
+            <div className="grid gap-3">{tiketSelesai.map(t => <TiketCard key={t.id} tiket={t} />)}</div>
           )}
         </div>
 

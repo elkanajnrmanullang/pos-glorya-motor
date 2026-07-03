@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -8,10 +8,49 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Printer, User, Wrench, CreditCard, Search, Plus, Trash2, Box, Loader2, Calendar, FileText, Activity, Lightbulb, History, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Printer, User, CreditCard, Search, Plus, Trash2, Box, Loader2, Activity, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { hitungHargaJasa } from '@/lib/utils/kalkulasi-jasa'
 
 interface PageProps { params: { id: string } }
+
+// --- SUB KOMPONEN UNTUK KATALOG JASA (DENGAN TINGKAT KESULITAN) ---
+function JasaItemCard({ jasa, ccMotor, onAdd, isPending }: { jasa: any, ccMotor: number, onAdd: (data: any) => void, isPending: boolean }) {
+  const [kesulitan, setKesulitan] = useState<'mudah' | 'sedang' | 'sulit'>(jasa.default_kesulitan || 'mudah')
+  
+  // Kalkulasi harga reaktif berdasarkan kesulitan yang di-select & CC Motor
+  const hargaFinal = hitungHargaJasa(Number(jasa.harga_dasar || 0), ccMotor, kesulitan)
+  const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
+
+  return (
+    <div className="border border-[#E6DFD3] rounded-xl p-3 flex flex-col justify-between bg-white hover:border-[#8EB69B] hover:shadow-sm transition-all gap-3">
+      <div>
+        <p className="text-sm font-semibold text-[#051F20] line-clamp-1" title={jasa.nama_jasa}>{jasa.nama_jasa}</p>
+        <p className="font-bold text-[#235347] text-sm mt-0.5">{formatRupiah(hargaFinal)}</p>
+      </div>
+      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+        <select
+          value={kesulitan}
+          onChange={(e) => setKesulitan(e.target.value as 'mudah'|'sedang'|'sulit')}
+          className="flex-1 h-8 text-xs bg-slate-50 border border-[#E6DFD3] rounded-lg px-2 text-[#051F20] font-medium outline-none focus:border-[#8EB69B] cursor-pointer"
+        >
+          <option value="mudah">Mudah</option>
+          <option value="sedang">Sedang</option>
+          <option value="sulit">Sulit</option>
+        </select>
+        <Button 
+          size="sm" variant="ghost" 
+          onClick={() => onAdd({ nama: jasa.nama_jasa, harga: hargaFinal, kesulitan })} 
+          disabled={isPending} 
+          className="h-8 text-xs bg-[#FAF7F2] text-[#163832] hover:bg-[#235347] hover:text-white rounded-lg border border-[#E6DFD3] px-3 font-semibold transition-colors"
+        >
+          Tambah
+        </Button>
+      </div>
+    </div>
+  )
+}
+// -------------------------------------------------------------------
 
 export default function DetailPembayaranPage({ params }: PageProps) {
   const tiketId = params.id
@@ -129,8 +168,13 @@ export default function DetailPembayaranPage({ params }: PageProps) {
 
   // MUTASI ADD/REMOVE JASA VIA RPC
   const addJasaMutation = useMutation({
-    mutationFn: async ({ nama, harga }: { nama: string, harga: number }) => {
-      const { error } = await supabase.rpc('tambah_jasa_tiket', { p_tiket_id: tiketId, p_nama_jasa: nama, p_harga: harga })
+    mutationFn: async ({ nama, harga, kesulitan }: { nama: string, harga: number, kesulitan: string }) => {
+      const { error } = await supabase.rpc('tambah_jasa_tiket', { 
+        p_tiket_id: tiketId, 
+        p_nama_jasa: nama, 
+        p_harga: harga,
+        p_kesulitan: kesulitan 
+      })
       if (error) throw error
     },
     onSuccess: () => {
@@ -351,20 +395,13 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                       ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           {katalogJasa?.map((j) => (
-                            <div key={j.id} className="border border-[#E6DFD3] rounded-xl p-3 flex items-center justify-between bg-white hover:border-[#8EB69B] hover:shadow-sm transition-all">
-                              <div>
-                                <p className="text-sm font-semibold text-[#051F20]">{j.nama_jasa}</p>
-                                <p className="font-medium text-[#235347] text-xs mt-0.5">{formatRupiah(j.harga_jasa)}</p>
-                              </div>
-                              <Button 
-                                size="sm" variant="ghost" 
-                                onClick={() => addJasaMutation.mutate({ nama: j.nama_jasa, harga: j.harga_jasa })} 
-                                disabled={addJasaMutation.isPending} 
-                                className="h-8 text-xs bg-[#FAF7F2] text-[#163832] hover:bg-[#235347] hover:text-white rounded-lg border border-[#E6DFD3]"
-                              >
-                                Tambah
-                              </Button>
-                            </div>
+                            <JasaItemCard 
+                              key={j.id} 
+                              jasa={j} 
+                              ccMotor={tiket.cc_motor || 0}
+                              onAdd={(data) => addJasaMutation.mutate(data)}
+                              isPending={addJasaMutation.isPending}
+                            />
                           ))}
                         </div>
                       )}
@@ -401,7 +438,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                         <TableRow key={svc.id} className="border-slate-50 hover:bg-slate-50">
                           <TableCell className="pl-5 py-3">
                             <p className="text-xs font-semibold text-[#051F20]">{svc.nama_jasa}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5">Jasa</p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 capitalize">Jasa • {svc.tingkat_kesulitan}</p>
                           </TableCell>
                           <TableCell className="text-center text-slate-500 text-xs">1</TableCell>
                           <TableCell className="text-right pr-5">

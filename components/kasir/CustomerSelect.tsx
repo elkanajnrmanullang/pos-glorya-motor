@@ -1,21 +1,22 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react'
-import { useSearchCustomers, useCreateCustomer, Customer } from '@/hooks/use-customers'
+import { useCreateCustomer, Customer } from '@/hooks/use-customers'
+import { createClient } from '@/lib/supabase/client'
+import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { UserPlus, Search, Check, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 
-// INTERFACE_CUSTOMER_SELECT_PROPS
 interface CustomerSelectProps {
   onSelect: (customer: Customer | null) => void
   selectedCustomer: Customer | null
 }
 
-// COMPONENT_CUSTOMER_SELECT
 export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectProps) {
+  const supabase = createClient()
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -24,10 +25,22 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
   const [newNama, setNewNama] = useState('')
   const [newPhone, setNewPhone] = useState('')
 
-  const { data: searchResults, isLoading } = useSearchCustomers(searchTerm)
+  // FETCH CUSTOMERS INLINE
+  const { data: searchResults, isLoading } = useQuery({
+    queryKey: ['customers', searchTerm],
+    queryFn: async () => {
+      let q = supabase.from('customers').select('*').order('created_at', { ascending: false }).limit(10)
+      if (searchTerm.length > 0) {
+        q = q.or(`nama.ilike.%${searchTerm}%,no_telp.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`)
+      }
+      const { data, error } = await q
+      if (error) throw error
+      return data as Customer[]
+    }
+  })
+
   const createCustomer = useCreateCustomer()
 
-  // EFFECT_HANDLE_CLICK_OUTSIDE
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -38,7 +51,6 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
     return () => document.removeEventListener("mousedown", handleClickOutside)
   }, [wrapperRef])
 
-  // HANDLE_CREATE_NEW_CUSTOMER
   const handleCreateNewCustomer = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -64,7 +76,6 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
     }
   }
 
-  // COMPONENT_RENDER
   return (
     <div className="relative w-full" ref={wrapperRef}>
       {selectedCustomer ? (
@@ -94,14 +105,15 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
               setIsOpen(true)
             }}
             onFocus={() => setIsOpen(true)}
+            onClick={() => setIsOpen(true)}
             className="pl-9 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
           />
 
-          {isOpen && searchTerm.length >= 2 && (
+          {isOpen && (
             <div className="absolute z-50 w-full mt-1 bg-white border border-[#E6DFD3] rounded-lg shadow-lg max-h-64 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center p-4 text-sm text-[#8EB69B]">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mencari...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memuat...
                 </div>
               ) : searchResults && searchResults.length > 0 ? (
                 <ul className="py-1">
@@ -145,7 +157,6 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
         </div>
       )}
 
-      {/* COMPONENT_MODAL_CREATE */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-md bg-[#FAF7F2] border-[#E6DFD3]">
           <DialogHeader>

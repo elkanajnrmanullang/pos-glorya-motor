@@ -25,8 +25,18 @@ export default function KasirLayout({ children }: { children: React.ReactNode })
         return
       }
       
-      const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', user.id).single()
-      if (profile) setUserName(profile.full_name)
+      const { data: profile } = await supabase.from('profiles').select('full_name, role').eq('id', user.id).single()
+      
+      if (profile) {
+        if (profile.role !== 'kasir') {
+          toast.error('Akses ditolak. Anda login bukan sebagai Kasir.')
+          if (profile.role === 'mekanik') router.push('/mekanik/dashboard')
+          else if (profile.role === 'owner') router.push('/owner/dashboard')
+          else router.push('/login')
+          return
+        }
+        setUserName(profile.full_name)
+      }
     }
     getUser()
   }, [router, supabase])
