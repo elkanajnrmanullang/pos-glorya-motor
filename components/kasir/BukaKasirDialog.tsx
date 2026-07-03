@@ -39,7 +39,7 @@ export function BukaKasirDialog() {
     e.preventDefault()
     
     if (!kasirId) {
-      toast.error("Gagal mendapatkan data sesi pengguna")
+      toast.error("Terjadi Kesalahan")
       return
     }
 
@@ -73,7 +73,7 @@ export function BukaKasirDialog() {
             Otorisasi Kasir
           </DialogTitle>
           <DialogDescription className="text-[#163832] font-medium pt-2">
-            Anda belum membuka sesi hari ini. Masukkan jumlah modal awal laci dan mintalah PIN Owner untuk memulai shift.
+            Selamat datang! Silahkan masukkan informasi yang sesuai. 
           </DialogDescription>
         </DialogHeader>
 

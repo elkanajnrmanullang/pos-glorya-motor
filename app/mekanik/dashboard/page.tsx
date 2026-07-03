@@ -3,58 +3,37 @@
 import { useState } from 'react'
 import { useMekanik } from '@/hooks/use-mekanik'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Wrench, CheckCircle2, Search, Plus, Trash2, Clock } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
+import { Wrench, CheckCircle2, Clock, ClipboardCheck } from 'lucide-react'
 import { toast } from 'sonner'
 
-// TIKET ITEMS INTERFACE
-interface TiketItem {
-  id: string
-  qty: number
-  harga_snapshot: number
-  barang?: {
-    nama: string
-  }
-}
+const CHECKLIST_ITEMS = [
+  { id: 'oli_mesin', label: 'Oli Mesin' },
+  { id: 'oli_gardan', label: 'Oli Gardan' },
+  { id: 'kampas_depan', label: 'Kampas Rem Depan' },
+  { id: 'kampas_belakang', label: 'Kampas Rem Belakang' },
+  { id: 'tekanan_ban', label: 'Tekanan Ban' },
+  { id: 'kelistrikan', label: 'Lampu & Kelistrikan' }
+]
 
-// TIKET JASA INTERFACE
-interface TiketJasa {
-  id: string
-  nama_jasa: string
-  harga_jasa: number
-}
+const STATUS_OPTIONS = ['Aman', 'Ganti', 'Servis']
 
-// MAIN COMPONENT
 export default function MekanikDashboard() {
-  const { 
-    userProfile, tiketSemua, isLoadingTiket, barang, jasa, 
-    klaimTiket, selesaiTiket, tambahItem, hapusItem, tambahJasa, hapusJasa, isProcessing 
-  } = useMekanik()
-
+  const { userProfile, tiketSemua, isLoadingTiket, klaimTiket, selesaiTiket, isProcessing } = useMekanik()
   const [activeTab, setActiveTab] = useState<'menunggu' | 'kerja'>('menunggu')
   
-  // DIALOG STATES
-  const [isAddPartOpen, setIsAddPartOpen] = useState(false)
-  const [isAddJasaOpen, setIsAddJasaOpen] = useState(false)
-  const [searchPart, setSearchPart] = useState('')
-  const [searchJasa, setSearchJasa] = useState('')
+  const [checklist, setChecklist] = useState<Record<string, string>>({})
+  const [saran, setSaran] = useState('')
 
-  // JASA MANUAL STATE
-  const [customJasaName, setCustomJasaName] = useState('')
-  const [customJasaPrice, setCustomJasaPrice] = useState<number | ''>('')
-
-  // DATA FILTERING
   const tiketMenunggu = tiketSemua.filter(t => t.status === 'menunggu')
   const tiketDikerjakan = tiketSemua.filter(t => t.status === 'dikerjakan' && t.mekanik_id === userProfile?.id)
-  
   const activeKerjaan = tiketDikerjakan[0]
 
-  const filteredPart = barang.filter(b => b.nama.toLowerCase().includes(searchPart.toLowerCase())).slice(0, 15)
-  const filteredJasa = jasa.filter(j => j.nama_jasa.toLowerCase().includes(searchJasa.toLowerCase()))
+  const handleChecklistChange = (itemId: string, status: string) => {
+    setChecklist(prev => ({ ...prev, [itemId]: status }))
+  }
 
-  // HANDLE KLAIM TIKET
   const handleKlaim = async (id: string) => {
     try {
       if (tiketDikerjakan.length > 0) return toast.error('Selesaikan pekerjaan saat ini terlebih dahulu!')
@@ -62,90 +41,80 @@ export default function MekanikDashboard() {
       toast.success('Tiket berhasil diklaim. Selamat bekerja!')
       setActiveTab('kerja')
     } catch {
-      toast.error('Gagal mengklaim. Tiket mungkin sudah diambil mekanik lain.')
+      toast.error('Gagal mengklaim tiket.')
     }
   }
 
-  // HANDLE SELESAI TIKET
   const handleSelesai = async (id: string) => {
+    if (Object.keys(checklist).length < CHECKLIST_ITEMS.length) {
+      return toast.error('Harap lengkapi seluruh poin Pengecekan Kendaraan.')
+    }
+    if (!saran.trim()) {
+      return toast.error('Harap berikan catatan atau saran pada kolom yang tersedia.')
+    }
+
     try {
-      await selesaiTiket(id)
-      toast.success('Pekerjaan selesai! Data dikirim ke Kasir.')
+      await selesaiTiket({ id, checklist, saran })
+      toast.success('Pekerjaan selesai dilaporkan ke Kasir.')
+      setChecklist({})
+      setSaran('')
       setActiveTab('menunggu')
     } catch {
-      toast.error('Gagal menyelesaikan pekerjaan.')
-    }
-  }
-
-  // HANDLE SUBMIT JASA MANUAL
-  const handleTambahJasaManual = async () => {
-    if (!customJasaName || customJasaPrice === '' || customJasaPrice < 0) {
-      return toast.error('Nama dan harga jasa manual wajib diisi dengan benar.')
-    }
-    try {
-      await tambahJasa({ tiketId: activeKerjaan.id, namaJasa: customJasaName, harga: customJasaPrice })
-      toast.success(`Jasa manual ditambah: ${customJasaName}`)
-      setCustomJasaName('')
-      setCustomJasaPrice('')
-      setIsAddJasaOpen(false)
-    } catch {
-      toast.error('Gagal menambahkan jasa manual')
+      toast.error('Gagal menyelesaikan tiket pekerjaan.')
     }
   }
 
   return (
-    <div className="w-full space-y-6 pb-20">
-      <div className="flex items-center gap-3">
-        <div className="w-12 h-12 bg-slate-900 rounded-full flex items-center justify-center text-white">
-          <Wrench className="w-6 h-6" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Bengkel Aktif</h1>
-          <p className="text-slate-500 font-medium text-sm">Pilih tiket, bongkar, dan catat perbaikan.</p>
-        </div>
+    <div className="w-full space-y-8 pb-12">
+      <div>
+        <h1 className="text-3xl font-black text-[#051F20] tracking-tight">Panel Pekerjaan</h1>
+        <p className="text-[#163832] font-medium text-sm mt-1">Kelola antrean dan laporkan status pengerjaan kendaraan.</p>
       </div>
 
-      {/* MOBILE FRIENDLY TABS */}
-      <div className="flex bg-slate-200/60 p-1 rounded-xl w-full max-w-sm">
-        <button onClick={() => setActiveTab('menunggu')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${activeTab === 'menunggu' ? 'bg-white shadow text-blue-600' : 'text-slate-500'}`}>
+      <div className="flex bg-white border border-[#E6DFD3] p-1.5 rounded-xl w-full max-w-md shadow-sm">
+        <button onClick={() => setActiveTab('menunggu')} className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'menunggu' ? 'bg-[#051F20] text-white shadow-md' : 'text-[#163832] hover:bg-[#FAF7F2]'}`}>
           Antrean ({tiketMenunggu.length})
         </button>
-        <button onClick={() => setActiveTab('kerja')} className={`flex-1 py-3 text-sm font-bold rounded-lg transition-all ${activeTab === 'kerja' ? 'bg-slate-900 shadow text-white' : 'text-slate-500'}`}>
+        <button onClick={() => setActiveTab('kerja')} className={`flex-1 py-2.5 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === 'kerja' ? 'bg-[#051F20] text-white shadow-md' : 'text-[#163832] hover:bg-[#FAF7F2]'}`}>
           Lembar Kerja
         </button>
       </div>
 
-      {isLoadingTiket && <p className="text-center p-8 text-slate-500">Memuat data bengkel...</p>}
+      {isLoadingTiket && <p className="text-sm font-medium text-[#163832]">Memuat data operasional...</p>}
 
-      {/* TAB ANTREAN MENUNGGU */}
       {!isLoadingTiket && activeTab === 'menunggu' && (
         <div className="grid gap-4 md:grid-cols-2">
           {tiketMenunggu.length === 0 ? (
-            <div className="col-span-full py-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200 border-dashed">
-              <CheckCircle2 className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-              <p className="font-bold">Tidak ada antrean baru.</p>
+            <div className="col-span-full py-16 flex flex-col items-center justify-center bg-white rounded-2xl border border-[#E6DFD3] border-dashed shadow-sm">
+              <div className="w-12 h-12 bg-[#E1EFE6] rounded-full flex items-center justify-center mb-3">
+                <CheckCircle2 className="w-5 h-5 text-[#235347]" />
+              </div>
+              <p className="font-bold text-[#051F20]">Antrean Kosong</p>
+              <p className="text-xs text-[#163832] mt-1">Belum ada kendaraan baru yang masuk.</p>
             </div>
           ) : (
             tiketMenunggu.map((tiket) => (
-              <Card key={tiket.id} className="border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3 border-b border-slate-100">
+              <Card key={tiket.id} className="border border-[#E6DFD3] bg-white shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-all">
+                <CardHeader className="bg-[#FAF7F2] pb-4 border-b border-[#E6DFD3]">
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="text-2xl font-black text-slate-800">{tiket.plat_motor}</h3>
-                      <p className="text-blue-600 font-bold text-sm uppercase">{tiket.merk_motor}</p>
+                      <h3 className="text-xl font-black text-[#051F20]">{tiket.plat_motor}</h3>
+                      <p className="text-[#235347] font-bold text-xs uppercase tracking-widest mt-1">{tiket.merk_motor}</p>
                     </div>
-                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                    <span className="text-[10px] font-bold text-[#163832] bg-white px-2 py-1 border border-[#E6DFD3] rounded-md">
                       {new Date(tiket.waktu_masuk).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-4 space-y-4">
-                  <div className="bg-red-50 p-3 rounded-lg border border-red-100">
-                    <p className="text-xs font-bold text-red-800 mb-1">KELUHAN:</p>
-                    <p className="text-sm text-red-900 font-medium">{tiket.keluhan || '-'}</p>
+                <CardContent className="pt-5 space-y-5">
+                  <div>
+                    <p className="text-[10px] font-bold text-[#8EB69B] uppercase tracking-widest mb-1.5">Keluhan Terdaftar</p>
+                    <p className="text-sm text-[#051F20] font-medium leading-relaxed bg-[#FAF7F2] p-3 rounded-xl">
+                      {tiket.keluhan || 'Tidak ada keluhan spesifik yang dicatat kasir.'}
+                    </p>
                   </div>
-                  <Button disabled={isProcessing} onClick={() => handleKlaim(tiket.id)} className="w-full h-12 text-base font-bold bg-blue-600 hover:bg-blue-700">
-                    KLAIM & KERJAKAN
+                  <Button disabled={isProcessing} onClick={() => handleKlaim(tiket.id)} className="w-full h-12 text-xs uppercase tracking-widest font-black bg-[#235347] hover:bg-[#051F20] text-white rounded-xl shadow-md transition-all">
+                    Klaim & Eksekusi
                   </Button>
                 </CardContent>
               </Card>
@@ -154,181 +123,96 @@ export default function MekanikDashboard() {
         </div>
       )}
 
-      {/* TAB LEMBAR KERJA */}
       {!isLoadingTiket && activeTab === 'kerja' && (
-        <div>
+        <div className="w-full">
           {!activeKerjaan ? (
-            <div className="py-12 text-center text-slate-500 bg-white rounded-xl border border-slate-200 border-dashed">
-              <Wrench className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-              <p className="font-bold">Anda belum mengklaim pekerjaan apapun.</p>
-              <p className="text-sm mt-1">Buka tab Antrean untuk mengambil motor pelanggan.</p>
+            <div className="py-16 flex flex-col items-center justify-center bg-white rounded-2xl border border-[#E6DFD3] border-dashed shadow-sm">
+              <div className="w-12 h-12 bg-[#FAF7F2] rounded-full flex items-center justify-center mb-3">
+                <Wrench className="w-5 h-5 text-[#8EB69B]" />
+              </div>
+              <p className="font-bold text-[#051F20]">Ruang Kerja Kosong</p>
+              <p className="text-xs text-[#163832] mt-1">Silakan pilih kendaraan dari tab Antrean.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* HEADER MOTOR */}
-              <Card className="bg-slate-900 text-white border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-center mb-4">
+            <div className="space-y-6">
+              <Card className="bg-[#051F20] text-white border-0 shadow-lg rounded-3xl overflow-hidden">
+                <CardContent className="p-6 md:p-8 relative">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#8EB69B] rounded-bl-full opacity-10 blur-2xl"></div>
+                  
+                  <div className="flex justify-between items-start mb-6 relative z-10">
                     <div>
-                      <h2 className="text-3xl font-black tracking-wider text-yellow-400">{activeKerjaan.plat_motor}</h2>
-                      <p className="font-bold text-slate-300 uppercase mt-0.5">{activeKerjaan.merk_motor}</p>
+                      <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">{activeKerjaan.plat_motor}</h2>
+                      <p className="font-bold text-[#8EB69B] uppercase tracking-widest text-sm mt-1">{activeKerjaan.merk_motor}</p>
                     </div>
-                    <div className="text-right">
-                      <span className="bg-white/10 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" /> Sedang Dikerjakan
-                      </span>
-                    </div>
+                    <span className="bg-[#163832] border border-[#235347] text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 shadow-sm">
+                      <Clock className="w-3.5 h-3.5 text-[#8EB69B]" /> Dalam Proses
+                    </span>
                   </div>
-                  <div className="bg-white/10 p-3 rounded-lg border border-white/5">
-                    <p className="text-xs font-bold text-slate-400 mb-0.5">KELUHAN AWAL:</p>
-                    <p className="text-sm font-medium">{activeKerjaan.keluhan}</p>
+                  
+                  <div className="bg-[#163832] p-4 rounded-xl border border-white/5 relative z-10">
+                    <p className="text-[10px] font-bold text-[#8EB69B] uppercase tracking-widest mb-1.5">Keluhan Awal</p>
+                    <p className="text-sm font-medium leading-relaxed">{activeKerjaan.keluhan}</p>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* MODUL SUKU CADANG */}
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-800">Suku Cadang (Part)</CardTitle>
-                  <Button size="sm" onClick={() => setIsAddPartOpen(true)} className="bg-slate-900 text-white h-8 text-xs"><Plus className="w-3.5 h-3.5 mr-1" /> Tambah</Button>
+              <Card className="border border-[#E6DFD3] shadow-sm rounded-3xl bg-white overflow-hidden">
+                <CardHeader className="pb-5 border-b border-[#E6DFD3] bg-[#FAF7F2]">
+                  <CardTitle className="text-base font-black text-[#051F20] flex items-center gap-2">
+                    <ClipboardCheck className="w-5 h-5 text-[#235347]" /> Pemeriksaan Standar
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="p-0">
-                  {activeKerjaan.tiket_items?.length === 0 ? (
-                    <p className="text-center text-slate-400 py-6 text-sm">Belum ada suku cadang ditambahkan.</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-100">
-                      {activeKerjaan.tiket_items.map((item: TiketItem) => (
-                        <li key={item.id} className="p-4 flex justify-between items-center hover:bg-slate-50">
-                          <div>
-                            <p className="font-bold text-slate-800 text-sm">{item.barang?.nama}</p>
-                            <p className="text-xs text-slate-500 font-medium">{item.qty} x Rp {item.harga_snapshot.toLocaleString('id-ID')}</p>
-                          </div>
-                          <Button disabled={isProcessing} variant="ghost" size="icon" onClick={() => hapusItem(item.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                <CardContent className="p-6 space-y-6">
+                  <div className="space-y-3">
+                    {CHECKLIST_ITEMS.map((item) => (
+                      <div key={item.id} className="flex flex-col md:flex-row md:items-center justify-between gap-3 p-3 hover:bg-[#FAF7F2] rounded-xl transition-colors border border-transparent hover:border-[#E6DFD3]">
+                        <span className="text-sm font-bold text-[#051F20]">{item.label}</span>
+                        <div className="flex gap-2">
+                          {STATUS_OPTIONS.map((status) => {
+                            const isSelected = checklist[item.id] === status;
+                            let activeClass = '';
+                            if (isSelected) {
+                              activeClass = status === 'Aman' ? 'bg-[#235347] text-white' : 
+                                            status === 'Ganti' ? 'bg-red-600 text-white' : 
+                                            'bg-amber-500 text-white';
+                            } else {
+                              activeClass = 'bg-white border border-[#E6DFD3] text-[#163832] hover:bg-[#FAF7F2]';
+                            }
+
+                            return (
+                              <button
+                                key={status}
+                                onClick={() => handleChecklistChange(item.id, status)}
+                                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all shadow-sm ${activeClass}`}
+                              >
+                                {status}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2 pt-4 border-t border-[#E6DFD3]">
+                    <label className="text-[10px] font-bold text-[#8EB69B] uppercase tracking-widest">Catatan & Rekomendasi</label>
+                    <Textarea 
+                      placeholder="Masukkan catatan spesifik mengenai kondisi mesin, tindakan yang telah dilakukan, atau komponen yang perlu diganti pada servis berikutnya."
+                      value={saran}
+                      onChange={(e) => setSaran(e.target.value)}
+                      className="min-h-[120px] bg-[#FAF7F2] border-[#E6DFD3] focus-visible:ring-[#8EB69B] resize-none rounded-xl text-sm font-medium text-[#051F20] p-4"
+                    />
+                  </div>
                 </CardContent>
               </Card>
 
-              {/* MODUL JASA */}
-              <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between">
-                  <CardTitle className="text-base font-bold text-slate-800">Jasa Servis</CardTitle>
-                  <Button size="sm" onClick={() => setIsAddJasaOpen(true)} className="bg-slate-900 text-white h-8 text-xs"><Plus className="w-3.5 h-3.5 mr-1" /> Tambah</Button>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {activeKerjaan.tiket_jasa?.length === 0 ? (
-                    <p className="text-center text-slate-400 py-6 text-sm">Belum ada jasa ditambahkan.</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-100">
-                      {activeKerjaan.tiket_jasa.map((jasaItem: TiketJasa) => (
-                        <li key={jasaItem.id} className="p-4 flex justify-between items-center hover:bg-slate-50">
-                          <div>
-                            <p className="font-bold text-slate-800 text-sm">{jasaItem.nama_jasa}</p>
-                            <p className="text-xs text-slate-500 font-medium">Rp {jasaItem.harga_jasa.toLocaleString('id-ID')}</p>
-                          </div>
-                          <Button disabled={isProcessing} variant="ghost" size="icon" onClick={() => hapusJasa(jasaItem.id)} className="text-red-500"><Trash2 className="w-4 h-4" /></Button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* TOMBOL SELESAI */}
-              <Button disabled={isProcessing} onClick={() => handleSelesai(activeKerjaan.id)} className="w-full h-14 text-base font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg">
-                <CheckCircle2 className="w-5 h-5 mr-2" /> SELESAI PEKERJAAN
+              <Button disabled={isProcessing} onClick={() => handleSelesai(activeKerjaan.id)} className="w-full h-14 text-sm font-black uppercase tracking-widest bg-[#235347] hover:bg-[#051F20] text-white rounded-2xl shadow-lg transition-all">
+                <CheckCircle2 className="w-5 h-5 mr-2" /> Akhiri & Serahkan ke Kasir
               </Button>
             </div>
           )}
         </div>
       )}
-
-      {/* DIALOG TAMBAH SPAREPART */}
-      <Dialog open={isAddPartOpen} onOpenChange={setIsAddPartOpen}>
-        <DialogContent className="sm:max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle>Cari & Tambah Suku Cadang</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <Input placeholder="Ketik nama part..." value={searchPart} onChange={(e) => setSearchPart(e.target.value)} className="pl-9" />
-            </div>
-            <div className="max-h-72 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
-              {filteredPart.length === 0 ? <p className="text-sm text-center text-slate-400 py-4">Barang tidak ditemukan atau stok habis.</p> : 
-               filteredPart.map((b) => (
-                <div key={b.id} className="p-3 flex justify-between items-center hover:bg-slate-50">
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">{b.nama}</p>
-                    <p className="text-xs font-medium text-emerald-600">Stok: {b.stok_fisik - b.stok_reserved}</p>
-                  </div>
-                  <Button disabled={isProcessing} size="sm" className="h-7 text-xs bg-blue-600 hover:bg-blue-700" onClick={async () => {
-                    try {
-                      await tambahItem({ tiketId: activeKerjaan.id, barangId: b.id, qty: 1, harga: b.harga_jual })
-                      toast.success(`Ditambahkan: ${b.nama}`)
-                      setIsAddPartOpen(false)
-                    } catch (error) { 
-                      toast.error(error instanceof Error ? error.message : 'Gagal menambahkan barang') 
-                    }
-                  }}>Tambah</Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* DIALOG TAMBAH JASA */}
-      <Dialog open={isAddJasaOpen} onOpenChange={setIsAddJasaOpen}>
-        <DialogContent className="sm:max-w-md bg-white">
-          <DialogHeader>
-            <DialogTitle>Tambah Jasa Servis</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 mt-2">
-            
-            {/* INPUT JASA MANUAL */}
-            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-3">
-              <p className="text-xs font-bold text-slate-500 uppercase">Input Jasa Manual</p>
-              <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Nama jasa..." value={customJasaName} onChange={(e) => setCustomJasaName(e.target.value)} className="h-9 text-sm bg-white" />
-                <Input type="number" placeholder="Harga..." value={customJasaPrice} onChange={(e) => setCustomJasaPrice(e.target.value ? Number(e.target.value) : '')} className="h-9 text-sm bg-white" />
-              </div>
-              <Button disabled={isProcessing} onClick={handleTambahJasaManual} className="w-full h-9 text-xs bg-slate-800 text-white hover:bg-black">
-                Tambah Jasa Manual
-              </Button>
-            </div>
-
-            <div className="relative pt-2">
-              <p className="text-xs font-bold text-slate-500 uppercase mb-2">Atau Pilih Dari Katalog</p>
-              <Search className="w-4 h-4 absolute left-3 top-10 text-slate-400" />
-              <Input placeholder="Cari katalog jasa..." value={searchJasa} onChange={(e) => setSearchJasa(e.target.value)} className="pl-9" />
-            </div>
-
-            <div className="max-h-56 overflow-y-auto border border-slate-100 rounded-lg divide-y divide-slate-100">
-              {filteredJasa.length === 0 ? <p className="text-sm text-center text-slate-400 py-4">Jasa tidak ditemukan.</p> : 
-               filteredJasa.map((j) => (
-                <div key={j.id} className="p-3 flex justify-between items-center hover:bg-slate-50">
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">{j.nama_jasa}</p>
-                    <p className="text-xs font-medium text-slate-500">Rp {j.harga_jasa.toLocaleString('id-ID')}</p>
-                  </div>
-                  <Button disabled={isProcessing} size="sm" className="h-7 text-xs bg-slate-900 text-white" onClick={async () => {
-                    try {
-                      await tambahJasa({ tiketId: activeKerjaan.id, namaJasa: j.nama_jasa, harga: j.harga_jasa })
-                      toast.success(`Jasa ditambah: ${j.nama_jasa}`)
-                      setIsAddJasaOpen(false)
-                    } catch { 
-                      toast.error('Gagal menambahkan jasa') 
-                    }
-                  }}>Pilih</Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

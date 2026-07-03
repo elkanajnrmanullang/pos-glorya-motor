@@ -8,6 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Button } from '@/components/ui/button'
 import { Boxes, Search, Loader2, History, ChevronLeft, ChevronRight } from 'lucide-react'
 
+// BARCODE SCAN
+// import { ScanBarcode } from 'react-dom'
+// import { Barcode } from 'react'
+
 // COMPONENT_STOK_PAGE
 export default function StokPage() {
   const { barang, isBarangLoading } = useBarang()
