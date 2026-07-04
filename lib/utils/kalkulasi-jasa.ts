@@ -7,12 +7,13 @@ export function hitungHargaJasa(
 ): number {
   let increment = 0;
 
+// Menentukan increment berdasarkan ccMotor untuk harga jasa
   if (ccMotor < 250) {
-    increment = 7000;
+    increment = 3000;
   } else if (ccMotor >= 250 && ccMotor < 400) {
-    increment = 10000;
+    increment = 7000;
   } else {
-    increment = 13000;
+    increment = 9000;
   }
 
   if (kesulitan === 'mudah') return hargaDasar;

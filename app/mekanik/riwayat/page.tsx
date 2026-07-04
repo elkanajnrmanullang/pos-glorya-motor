@@ -34,7 +34,6 @@ export default function RiwayatPekerjaanMekanik() {
         <h1 className="text-3xl font-black text-[#051F20] tracking-tight">Riwayat Pengerjaan</h1>
         <p className="text-[#163832] text-sm font-medium mt-1">Arsip dan rekam jejak kendaraan yang telah diselesaikan.</p>
       </div>
-
       <Card className="border border-[#E6DFD3] bg-white shadow-sm overflow-hidden rounded-3xl">
         <CardHeader className="border-b border-[#E6DFD3] pb-5 bg-[#FAF7F2] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center text-[#051F20]">

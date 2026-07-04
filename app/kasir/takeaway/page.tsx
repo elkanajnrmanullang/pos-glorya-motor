@@ -13,15 +13,16 @@ import { Button } from '@/components/ui/button'
 import { Search, ShoppingBag, Plus, Minus, Trash2, Printer, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 
+// INTERFACE KERANJANG
 interface CartItem {
-  id: string
+  sku: string
   nama: string
   harga_jual: number
   qty: number
   maxQty: number
 }
 
-// COMPONENT_TAKEAWAY_POS_PAGE
+// COMPONENT TAKEAWAY POS PAGE
 export default function TakeawayPOSPage() {
   const supabase = createClient()
   const [userId, setUserId] = useState<string | undefined>(undefined)
@@ -49,7 +50,7 @@ export default function TakeawayPOSPage() {
     queryFn: async () => {
       let q = supabase.from('barang').select('*').eq('aktif', true).order('nama')
       if (searchTerm) {
-        q = q.or(`nama.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`)
+        q = q.or(`nama.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%,barcode.eq.${searchTerm}`)
       } else {
         q = q.limit(20)
       }
@@ -59,21 +60,24 @@ export default function TakeawayPOSPage() {
     }
   })
 
+  // HANDLER KERANJANG
   const addToCart = (barang: any) => {
     const tersedia = barang.stok_fisik - barang.stok_reserved
     if (tersedia <= 0) return
 
+    const itemSku = barang.sku || barang.id
+
     setCart(prev => {
-      const existing = prev.find(item => item.id === barang.id || item.id === barang.sku)
+      const existing = prev.find(item => item.sku === itemSku)
       if (existing) {
         if (existing.qty >= tersedia) {
           toast.error('Stok maksimal tercapai')
           return prev
         }
-        return prev.map(item => (item.id === barang.id || item.id === barang.sku) ? { ...item, qty: item.qty + 1 } : item)
+        return prev.map(item => item.sku === itemSku ? { ...item, qty: item.qty + 1 } : item)
       }
       return [...prev, {
-        id: barang.sku || barang.id,
+        sku: itemSku,
         nama: barang.nama,
         harga_jual: barang.harga_jual,
         qty: 1,
@@ -83,9 +87,9 @@ export default function TakeawayPOSPage() {
     setSearchTerm('')
   }
 
-  const updateQty = (id: string, delta: number) => {
+  const updateQty = (sku: string, delta: number) => {
     setCart(prev => prev.map(item => {
-      if (item.id === id) {
+      if (item.sku === sku) {
         const newQty = item.qty + delta
         if (newQty > 0 && newQty <= item.maxQty) return { ...item, qty: newQty }
       }
@@ -93,13 +97,14 @@ export default function TakeawayPOSPage() {
     }))
   }
 
-  const removeFromCart = (id: string) => {
-    setCart(prev => prev.filter(item => item.id !== id))
+  const removeFromCart = (sku: string) => {
+    setCart(prev => prev.filter(item => item.sku !== sku))
   }
 
   const totalAkhir = cart.reduce((acc, item) => acc + (item.harga_jual * item.qty), 0)
   const kembalian = uangDibayar - totalAkhir
 
+  // HANDLER CHECKOUT
   const handleCheckout = async () => {
     if (!sesiAktif) return toast.error('Sesi kasir tidak aktif')
     if (cart.length === 0) return toast.error('Keranjang kosong')
@@ -132,12 +137,15 @@ export default function TakeawayPOSPage() {
     setMetodeBayar('tunai')
   }
 
+  // FORMATTER
   const formatInputRibuan = (val: number) => val ? val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : ''
   const parseInputRibuan = (val: string) => isNaN(parseInt(val.replace(/[^0-9]/g, ''), 10)) ? 0 : parseInt(val.replace(/[^0-9]/g, ''), 10)
   const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
 
+  // RENDER LOADING SESI
   if (isSesiLoading) return <div className="p-8 text-slate-500 font-medium">Memuat POS Takeaway...</div>
 
+  // RENDER TRANSAKSI SUKSES
   if (trxSukses) {
     return (
       <div className="max-w-md mx-auto mt-12 p-8 bg-white border border-[#E6DFD3] rounded-xl shadow-sm text-center space-y-6">
@@ -178,7 +186,7 @@ export default function TakeawayPOSPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <Input
                 type="text"
-                placeholder="Scan atau ketik nama barang..."
+                placeholder="Scan atau ketik nama barang/SKU..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 h-10 text-sm border-[#E6DFD3] focus-visible:ring-1 focus-visible:ring-[#8EB69B] bg-white text-[#051F20] shadow-sm rounded-lg w-full"
@@ -192,13 +200,13 @@ export default function TakeawayPOSPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {searchResults.map(b => (
                   <div 
-                    key={b.id || b.sku} 
+                    key={b.sku} 
                     onClick={() => addToCart(b)}
                     className="p-4 bg-white border border-[#E6DFD3] hover:border-[#8EB69B] shadow-sm cursor-pointer rounded-xl transition-all flex flex-col justify-between"
                   >
                     <div>
                       <h4 className="font-semibold text-[#051F20] text-sm line-clamp-1" title={b.nama}>{b.nama}</h4>
-                      <p className="text-xs text-slate-500 mt-0.5">{b.barcode || b.sku}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{b.sku}</p>
                     </div>
                     <div className="flex justify-between items-end mt-4">
                       <span className="font-bold text-[#235347]">{formatRupiah(b.harga_jual)}</span>
@@ -245,18 +253,18 @@ export default function TakeawayPOSPage() {
                 ) : (
                   <div className="divide-y divide-[#E6DFD3]">
                     {cart.map(item => (
-                      <div key={item.id} className="p-4 bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:bg-slate-50 transition-colors">
+                      <div key={item.sku} className="p-4 bg-white flex flex-col sm:flex-row justify-between sm:items-center gap-3 hover:bg-slate-50 transition-colors">
                         <div className="flex-1">
                           <p className="font-semibold text-[#051F20] text-sm">{item.nama}</p>
                           <p className="font-semibold text-[#8EB69B] text-xs mt-0.5">{formatRupiah(item.harga_jual)}</p>
                         </div>
                         <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto border-t sm:border-0 pt-2 sm:pt-0 border-slate-100">
                           <div className="flex items-center border border-[#E6DFD3] rounded-lg bg-white">
-                            <button onClick={() => updateQty(item.id, -1)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-l-lg"><Minus className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => updateQty(item.sku, -1)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-l-lg"><Minus className="w-3.5 h-3.5" /></button>
                             <span className="w-8 text-center font-semibold text-sm text-[#051F20]">{item.qty}</span>
-                            <button onClick={() => updateQty(item.id, 1)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-r-lg"><Plus className="w-3.5 h-3.5" /></button>
+                            <button onClick={() => updateQty(item.sku, 1)} className="p-1.5 text-slate-500 hover:bg-slate-100 rounded-r-lg"><Plus className="w-3.5 h-3.5" /></button>
                           </div>
-                          <button onClick={() => removeFromCart(item.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                          <button onClick={() => removeFromCart(item.sku)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
                         </div>
                       </div>
                     ))}
