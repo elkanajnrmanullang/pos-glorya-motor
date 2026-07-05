@@ -35,7 +35,7 @@ export default function MasterJasaPage() {
 
   const openEditDialog = (jasa: KatalogJasa) => {
     setEditingId(jasa.id)
-    setFormData({ nama: jasa.nama_jasa, harga: jasa.harga_jasa.toString() })
+    setFormData({ nama: jasa.nama_jasa, harga: jasa.harga_dasar.toString()})
     setIsDialogOpen(true)
   }
 
@@ -50,7 +50,7 @@ export default function MasterJasaPage() {
 
     const payload = {
       nama_jasa: formData.nama,
-      harga_jasa: Number(formData.harga)
+      harga_dasar: Number(formData.harga)
     }
 
     try {
@@ -126,7 +126,7 @@ export default function MasterJasaPage() {
                     <TableRow key={jasa.id} className="hover:bg-slate-50 transition-colors border-[#E6DFD3]">
                       <TableCell className="pl-6 text-slate-500 font-medium text-sm">{index + 1}</TableCell>
                       <TableCell className="font-semibold text-[#051F20] text-sm">{jasa.nama_jasa}</TableCell>
-                      <TableCell className="text-right font-semibold text-[#235347] text-sm">{formatRupiah(jasa.harga_jasa)}</TableCell>
+                      <TableCell className="text-right font-semibold text-[#235347] text-sm">{formatRupiah(jasa.harga_dasar)}</TableCell>
                       <TableCell className="text-right pr-6">
                         <div className="flex justify-end gap-1">
                           <Button variant="ghost" size="icon" onClick={() => openEditDialog(jasa)} className="h-8 w-8 text-blue-600 hover:bg-blue-50 rounded-lg">

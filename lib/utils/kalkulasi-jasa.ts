@@ -9,16 +9,16 @@ export function hitungHargaJasa(
 
 // Menentukan increment berdasarkan ccMotor untuk harga jasa
   if (ccMotor < 250) {
-    increment = 3000;
+    increment = 2000;
   } else if (ccMotor >= 250 && ccMotor < 400) {
-    increment = 7000;
+    increment = 4000;
   } else {
-    increment = 9000;
+    increment = 5000;
   }
 
   if (kesulitan === 'mudah') return hargaDasar;
   if (kesulitan === 'sedang') return hargaDasar + increment;
-  if (kesulitan === 'sulit') return hargaDasar + (increment * 2);
+  if (kesulitan === 'sulit') return hargaDasar + (increment * 1.5);
 
   return hargaDasar;
 }

@@ -1,11 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-// INTERFACE DATA JASA
 export interface KatalogJasa {
   id: string
   nama_jasa: string
-  harga_jasa: number
+  harga_dasar: number
   aktif: boolean
   created_at?: string
 }
@@ -16,7 +15,7 @@ export function useKatalogJasa() {
 
   // FETCH SEMUA DATA JASA
   const query = useQuery({
-    queryKey: ['owner-katalog-jasa'],
+    queryKey: ['owner-katalog-jasa-v2'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('katalog_jasa')
@@ -30,7 +29,7 @@ export function useKatalogJasa() {
 
   // MUTASI TAMBAH JASA
   const tambahJasa = useMutation({
-    mutationFn: async (newJasa: { nama_jasa: string; harga_jasa: number }) => {
+    mutationFn: async (newJasa: { nama_jasa: string; harga_dasar: number }) => {
       const { error } = await supabase
         .from('katalog_jasa')
         .insert([newJasa])
@@ -40,26 +39,26 @@ export function useKatalogJasa() {
         throw error
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-katalog-jasa'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-katalog-jasa-v2'] })
   })
 
-  // MUTASI UBAH JASA
+  // MUTASI UDPATE JASA 
   const updateJasa = useMutation({
-    mutationFn: async (updatedJasa: { id: string; nama_jasa: string; harga_jasa: number }) => {
+    mutationFn: async (updatedJasa: { id: string; nama_jasa: string; harga_dasar: number }) => {
       const { error } = await supabase
         .from('katalog_jasa')
-        .update({
+        .upsert({
+          id: updatedJasa.id,
           nama_jasa: updatedJasa.nama_jasa,
-          harga_jasa: updatedJasa.harga_jasa
-        })
-        .eq('id', updatedJasa.id)
+          harga_dasar: updatedJasa.harga_dasar
+        }, { onConflict: 'id' }) 
 
       if (error) {
         if (error.code === '23505') throw new Error('Nama jasa ini sudah digunakan!')
         throw error
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-katalog-jasa'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-katalog-jasa-v2'] })
   })
 
   // MUTASI HAPUS JASA
@@ -72,7 +71,7 @@ export function useKatalogJasa() {
 
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-katalog-jasa'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-katalog-jasa-v2'] })
   })
 
   return {
