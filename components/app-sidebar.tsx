@@ -17,7 +17,7 @@ import {
     SidebarMenuItem,
     useSidebar
 } from "@/components/ui/sidebar"
-import { LayoutDashboard, Users, Box, Wrench, FileText, Receipt, Activity, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Box, Wrench, FileText, Receipt, Activity, LogOut, UserCog } from 'lucide-react'
 
 export function AppSidebar({ userName }: { userName?: string }) {
     const pathname = usePathname()
@@ -33,13 +33,14 @@ export function AppSidebar({ userName }: { userName?: string }) {
     }
 
     const navItems = [
-        { name: 'Ringkasan Bisnis', href: '/owner/dashboard', icon: LayoutDashboard },
-        { name: 'Pantauan Stok & Aset', href: '/owner/stok', icon: Box },
-        { name: 'Katalog Master Jasa', href: '/owner/master-jasa', icon: Wrench },
-        { name: 'Bagi Hasil Mekanik', href: '/owner/performa', icon: Activity },
+        { name: 'Dashboard', href: '/owner/dashboard', icon: LayoutDashboard },
+        { name: 'Stok & Aset', href: '/owner/stok', icon: Box },
+        { name: 'Manajemen Jasa', href: '/owner/master-jasa', icon: Wrench },
+        { name: 'Penghasilan Mekanik', href: '/owner/performa', icon: Activity },
         { name: 'Laporan Tutup Shift', href: '/owner/laporan-shift', icon: FileText },
         { name: 'Riwayat Transaksi', href: '/owner/riwayat', icon: Receipt },
-        { name: 'Akun Karyawan', href: '/owner/karyawan', icon: Users },
+        { name: 'Database Pelanggan', href: '/owner/customers', icon: Users },
+        { name: 'Akun Karyawan', href: '/owner/karyawan', icon: UserCog },
     ]
 
     return (

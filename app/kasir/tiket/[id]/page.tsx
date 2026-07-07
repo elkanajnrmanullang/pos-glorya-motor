@@ -8,17 +8,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, Printer, User, CreditCard, Search, Plus, Trash2, Box, Loader2, Activity, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { ArrowLeft, Printer, User, CreditCard, Search, Plus, Trash2, Box, Loader2, Activity, ChevronLeft, ChevronRight, Receipt, UserCircle, CalendarDays, AlertCircle, Wrench, FileDown, MessageCircle } from 'lucide-react'
 import { toast } from 'sonner'
 import { hitungHargaJasa } from '@/lib/utils/kalkulasi-jasa'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 
 interface PageProps { params: { id: string } }
 
-// --- SUB KOMPONEN UNTUK KATALOG JASA (DENGAN TINGKAT KESULITAN) ---
 function JasaItemCard({ jasa, ccMotor, onAdd, isPending }: { jasa: any, ccMotor: number, onAdd: (data: any) => void, isPending: boolean }) {
   const [kesulitan, setKesulitan] = useState<'mudah' | 'sedang' | 'sulit'>(jasa.default_kesulitan || 'mudah')
-  
-  // Kalkulasi harga reaktif berdasarkan kesulitan yang di-select & CC Motor
   const hargaFinal = hitungHargaJasa(Number(jasa.harga_dasar || 0), ccMotor, kesulitan)
   const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
 
@@ -50,7 +51,6 @@ function JasaItemCard({ jasa, ccMotor, onAdd, isPending }: { jasa: any, ccMotor:
     </div>
   )
 }
-// -------------------------------------------------------------------
 
 export default function DetailPembayaranPage({ params }: PageProps) {
   const tiketId = params.id
@@ -60,14 +60,13 @@ export default function DetailPembayaranPage({ params }: PageProps) {
 
   const [metodeBayar, setMetodeBayar] = useState<'tunai' | 'qris' | 'transfer'>('tunai')
   const [uangDibayar, setUangDibayar] = useState<number>(0)
+  const [showNota, setShowNota] = useState(false)
   
-  // STATE KATALOG
   const [activeTab, setActiveTab] = useState<'part' | 'jasa'>('part')
   const [searchKatalog, setSearchKatalog] = useState('')
   const [pageBarang, setPageBarang] = useState(1)
   const ITEMS_PER_PAGE = 20
 
-  // 1. FETCH TIKET & IDENTITAS
   const { data: tiket, isLoading: isTiketLoading } = useQuery({
     queryKey: ['tiket-detail', tiketId],
     queryFn: async () => {
@@ -88,7 +87,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // 2. FETCH ITEMS (PART & JASA)
   const { data: spareparts, isLoading: isPartsLoading } = useQuery({
     queryKey: ['tiket-parts', tiketId],
     queryFn: async () => {
@@ -107,7 +105,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // 3. FETCH KATALOG BARANG (PAGINASI)
   const { data: katalogBarang, isLoading: isKatalogBarangLoading } = useQuery({
     queryKey: ['katalog-barang', searchKatalog, pageBarang],
     queryFn: async () => {
@@ -125,7 +122,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // 4. FETCH KATALOG JASA
   const { data: katalogJasa, isLoading: isKatalogJasaLoading } = useQuery({
     queryKey: ['katalog-jasa', searchKatalog],
     queryFn: async () => {
@@ -139,7 +135,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // MUTASI ADD/REMOVE ITEM VIA RPC
   const addItemMutation = useMutation({
     mutationFn: async ({ sku, harga }: { sku: string, harga: number }) => {
       const { error } = await supabase.rpc('tambah_item_tiket', { p_tiket_id: tiketId, p_barang_sku: sku, p_qty: 1, p_harga: harga })
@@ -166,7 +161,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // MUTASI ADD/REMOVE JASA VIA RPC
   const addJasaMutation = useMutation({
     mutationFn: async ({ nama, harga, kesulitan }: { nama: string, harga: number, kesulitan: string }) => {
       const { error } = await supabase.rpc('tambah_jasa_tiket', { 
@@ -195,7 +189,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
     }
   })
 
-  // MUTASI PELUNASAN
   const lunasMutation = useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc('proses_pelunasan_kasir', { p_tiket_id: tiketId, p_metode_bayar: metodeBayar })
@@ -205,10 +198,80 @@ export default function DetailPembayaranPage({ params }: PageProps) {
       toast.success('Pembayaran berhasil dilunasi!')
       queryClient.invalidateQueries({ queryKey: ['tiket-aktif'] })
       queryClient.invalidateQueries({ queryKey: ['tiket-detail', tiketId] })
+      setShowNota(true)
     }
   })
 
-  // HELPER FORMATTER
+  const unduhPDF = async () => {
+    const element = document.getElementById('nota-hidden-print')
+    if (!element) return toast.error('Gagal memproses nota')
+
+    try {
+      element.style.display = 'block'
+      const canvas = await html2canvas(element, { scale: 2, backgroundColor: '#ffffff' })
+      element.style.display = 'none'
+
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [80, 150] })
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+      pdf.save(`Invoice_${tiket?.nomor_antrian || 'Servis'}.pdf`)
+      
+      toast.success('PDF berhasil diunduh')
+    } catch (error) {
+      console.error(error)
+      toast.error('Terjadi kesalahan saat membuat PDF')
+    }
+  }
+
+  const kirimWA = () => {
+    if (!tiket?.customers?.no_telp) return toast.error('Nomor WA pelanggan tidak ditemukan')
+    
+    let phone = tiket.customers.no_telp.replace(/\D/g, '')
+    if (phone.startsWith('0')) phone = '62' + phone.substring(1)
+
+    let pesan = `*GLORYA MOTOR*\nJl. Raya Bengkel No. 123\n\n`
+    pesan += `*STRUK SERVIS KENDARAAN*\n`
+    pesan += `No: ${tiket.nomor_antrian}\n`
+    pesan += `Tanggal: ${new Date(tiket.waktu_lunas || tiket.waktu_selesai).toLocaleString('id-ID')}\n`
+    pesan += `Pelanggan: ${tiket.customers.nama}\n`
+    pesan += `Kendaraan: ${tiket.merk_motor} (${tiket.plat_motor})\n`
+    pesan += `----------------------------------\n`
+    
+    if (services && services.length > 0) {
+      pesan += `*Jasa Layanan:*\n`
+      services.forEach((j: any) => {
+        pesan += `- ${j.nama_jasa}: ${formatRupiah(Number(j.harga_jasa))}\n`
+      })
+    }
+    
+    if (spareparts && spareparts.length > 0) {
+      pesan += `\n*Suku Cadang:*\n`
+      spareparts.forEach((p: any) => {
+        pesan += `- ${p.barang?.nama} (${p.qty}x): ${formatRupiah(p.qty * p.harga_snapshot)}\n`
+      })
+    }
+    
+    pesan += `----------------------------------\n`
+    pesan += `*Total: ${formatRupiah(totalAkhir)}*\n`
+    pesan += `Metode: ${(tiket.metode_bayar || '').toUpperCase()}\n\n`
+
+    if (tiket.keluhan) {
+      pesan += `*Keluhan Awal:*\n${tiket.keluhan}\n\n`
+    }
+    
+    if (tiket.saran_mekanik || tiket.catatan_kesehatan_mesin) {
+      pesan += `*Laporan Mekanik:*\n${tiket.saran_mekanik || tiket.catatan_kesehatan_mesin}\n\n`
+    }
+
+    pesan += `Terima kasih telah mempercayakan kendaraan Anda di Glorya Motor! 🙏`
+
+    window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank')
+  }
+
   const formatInputRibuan = (val: number) => val ? val.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : ''
   const parseInputRibuan = (val: string) => isNaN(parseInt(val.replace(/[^0-9]/g, ''), 10)) ? 0 : parseInt(val.replace(/[^0-9]/g, ''), 10)
   const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val)
@@ -227,9 +290,8 @@ export default function DetailPembayaranPage({ params }: PageProps) {
   const totalPagesBarang = Math.ceil((katalogBarang?.count || 0) / ITEMS_PER_PAGE)
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-16 font-sans">
+    <div className="max-w-7xl mx-auto space-y-6 pb-16 font-sans relative">
       
-      {/* HEADER TIKET */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" onClick={() => router.push('/kasir/tiket/aktif')} className="h-10 w-10 rounded-xl border-[#E6DFD3] hover:bg-slate-50 text-[#051F20]">
@@ -247,7 +309,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
 
       <div className="grid gap-6 xl:grid-cols-12 items-start">
         
-        {/* KOLOM KIRI: IDENTITAS & RAPOR KENDARAAN */}
         <div className="xl:col-span-7 space-y-6">
           <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden">
             <CardHeader className="bg-[#FAF7F2] py-4 border-b border-[#E6DFD3]">
@@ -285,7 +346,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          {/* RAPOR KENDARAAN (Tampil Jika Selesai/Lunas) */}
           {isSelesai && (
             <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="bg-[#FAF7F2] py-4 border-b border-[#E6DFD3]">
@@ -318,7 +378,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
             </Card>
           )}
 
-          {/* GRID KATALOG KASIR (Hanya tampil jika belum lunas) */}
           {!isLunas && (
             <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden">
               <CardHeader className="bg-[#FAF7F2] py-4 border-b border-[#E6DFD3] flex flex-row items-center justify-between">
@@ -373,7 +432,6 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                         </div>
                       )}
                       
-                      {/* PAGINATION BARANG */}
                       {totalPagesBarang > 1 && (
                         <div className="flex items-center justify-between pt-2">
                           <Button variant="outline" size="sm" onClick={() => setPageBarang(p => Math.max(1, p - 1))} disabled={pageBarang === 1} className="h-8 text-xs border-[#E6DFD3] rounded-lg">
@@ -413,10 +471,8 @@ export default function DetailPembayaranPage({ params }: PageProps) {
           )}
         </div>
 
-        {/* KOLOM KANAN: TAGIHAN & PEMBAYARAN */}
         <div className="xl:col-span-5 space-y-6">
-          
-          <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden">
+          <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden sticky top-6">
             <CardHeader className="border-b border-[#E6DFD3] bg-[#FAF7F2] py-4">
               <CardTitle className="text-sm font-semibold text-[#051F20]">Rincian Tagihan</CardTitle>
             </CardHeader>
@@ -482,7 +538,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
             </CardContent>
           </Card>
 
-          <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden sticky top-6">
+          <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-2xl overflow-hidden sticky top-[480px]">
             <CardHeader className="bg-[#051F20] py-4">
               <CardTitle className="text-sm font-semibold text-white flex items-center gap-2">
                 <CreditCard className="w-4 h-4 text-[#8EB69B]" /> Pembayaran
@@ -532,7 +588,7 @@ export default function DetailPembayaranPage({ params }: PageProps) {
                   )}
 
                   {isLunas ? (
-                    <Button type="button" onClick={() => toast.info('Fitur cetak PDF A4 akan dikembangkan di Tahap 3')} className="w-full h-12 text-sm font-semibold bg-[#051F20] hover:bg-black text-white rounded-xl shadow-sm transition-all">
+                    <Button type="button" onClick={() => setShowNota(true)} className="w-full h-12 text-sm font-semibold bg-[#051F20] hover:bg-black text-white rounded-xl shadow-sm transition-all">
                       <Printer className="w-4 h-4 mr-2" /> CETAK INVOICE & RAPOR
                     </Button>
                   ) : (
@@ -549,6 +605,198 @@ export default function DetailPembayaranPage({ params }: PageProps) {
           </Card>
         </div>
       </div>
+
+      <Dialog open={showNota} onOpenChange={setShowNota}>
+        <DialogContent className="sm:max-w-4xl w-[95vw] bg-[#FAF7F2] border border-[#E6DFD3] rounded-2xl shadow-sm p-0 overflow-hidden max-h-[90vh] flex flex-col gap-0 font-sans">
+          <div className="p-6 bg-white border-b border-[#E6DFD3] flex items-start justify-between">
+            <div>
+              <DialogTitle className="text-xl font-black text-[#051F20] flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-[#8EB69B]" /> Struk Laporan {tiket?.nomor_antrian}
+              </DialogTitle>
+            </div>
+            <div className="text-right">
+              <Badge variant="outline" className="border-0 uppercase tracking-widest font-bold text-[10px] px-2.5 py-1 bg-blue-50 text-blue-600">
+                Servis Kendaraan
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-xl">
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex items-center gap-3">
+                    <UserCircle className="w-8 h-8 text-slate-300" />
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Identitas Konsumen</p>
+                      <p className="text-base font-bold text-[#051F20]">{tiket?.customers?.nama || 'Pelanggan Umum'}</p>
+                      {tiket?.customers?.no_telp && <p className="text-xs font-medium text-slate-500 mt-0.5">HP: {tiket.customers.no_telp}</p>}
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-slate-100 flex items-center gap-3">
+                    <CalendarDays className="w-5 h-5 text-slate-300" />
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Waktu Transaksi</p>
+                      <p className="text-sm font-bold text-[#051F20]">{formatDate(tiket?.waktu_lunas || tiket?.waktu_selesai || '')}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-white border-[#E6DFD3] shadow-sm rounded-xl">
+                <CardContent className="p-5 flex flex-col justify-center h-full">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Kendaraan Pelanggan</p>
+                  <h3 className="text-lg font-black text-[#051F20]">
+                    {tiket?.merk_motor || '-'} <span className="text-sm text-slate-500 font-semibold">{tiket?.cc_motor ? `(${tiket.cc_motor}cc)` : ''}</span>
+                  </h3>
+                  <div className="flex items-center gap-3 mt-3">
+                    <span className="px-3 py-1.5 bg-slate-100 text-[#051F20] font-black text-sm rounded-md tracking-widest border border-slate-200">
+                      {tiket?.plat_motor || '-'}
+                    </span>
+                    {tiket?.tahun_motor && <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tahun {tiket.tahun_motor}</span>}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white p-5 rounded-xl border border-rose-100 shadow-sm">
+                <p className="font-bold text-xs text-rose-500 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <AlertCircle className="w-4 h-4"/> Keluhan Awal 
+                </p>
+                <p className="text-[#051F20] font-medium text-sm leading-relaxed">
+                  {tiket?.keluhan || '-'}
+                </p>
+              </div>
+              
+              <div className="bg-white p-5 rounded-xl border border-blue-100 shadow-sm">
+                <p className="font-bold text-xs text-blue-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
+                  <Wrench className="w-4 h-4"/> Laporan / Saran Mekanik
+                </p>
+                <div className="text-[#051F20] font-medium text-sm leading-relaxed">
+                    {tiket?.saran_mekanik || tiket?.catatan_kesehatan_mesin || <span className="text-slate-400 italic">Tidak ada catatan khusus dari mekanik.</span>}
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-[#E6DFD3] shadow-sm overflow-hidden mt-6">
+              <div className="bg-[#FAF7F2] px-5 py-3 border-b border-[#E6DFD3]">
+                <h4 className="text-sm font-bold text-[#051F20]">Rincian Tindakan & Pembelian</h4>
+              </div>
+              
+              <div className="p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Jasa Layanan</p>
+                    <div className="space-y-3">
+                      {services && services.length > 0 ? (
+                        services.map((j: any, i: number) => (
+                          <div key={`jasa-${i}`} className="flex justify-between items-start text-sm">
+                            <span className="font-medium text-[#051F20] flex-1 pr-4">{j.nama_jasa}</span>
+                            <span className="font-bold text-[#051F20] whitespace-nowrap">{formatRupiah(Number(j.harga_jasa))}</span>
+                          </div>
+                        ))
+                      ) : totalJasa > 0 ? (
+                        <div className="flex justify-between items-start text-sm">
+                          <span className="font-medium text-[#051F20] flex-1 pr-4">Jasa Servis (Manual)</span>
+                          <span className="font-bold text-[#051F20] whitespace-nowrap">{formatRupiah(totalJasa)}</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium italic block py-2">-</span>
+                      )}
+                    </div>
+                    <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subtotal Jasa</span>
+                      <span className="text-sm font-bold text-[#051F20]">{formatRupiah(totalJasa)}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 md:border-l md:border-slate-100 md:pl-6 border-t md:border-t-0 border-slate-100 pt-4 md:pt-0">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 pb-2">Suku Cadang / Sparepart</p>
+                    <div className="space-y-3">
+                      {spareparts && spareparts.length > 0 ? (
+                        spareparts.map((it: any, i: number) => (
+                          <div key={`item-${i}`} className="flex justify-between items-start text-sm">
+                            <div className="flex gap-2 flex-1 pr-4">
+                              <span className="text-slate-500 font-bold shrink-0">{it.qty}x</span>
+                              <span className="font-medium text-[#051F20]">{it.barang?.nama || 'Barang Terhapus'}</span>
+                            </div>
+                            <span className="font-bold text-[#051F20] whitespace-nowrap">{formatRupiah((Number(it.qty) || 0) * (Number(it.harga_snapshot) || 0))}</span>
+                          </div>
+                        ))
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium italic block py-2">-</span>
+                      )}
+                    </div>
+                    <div className="pt-3 border-t border-slate-100 flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Subtotal Part</span>
+                      <span className="text-sm font-bold text-[#051F20]">{formatRupiah(totalPart)}</span>
+                    </div>
+                  </div>
+
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-between items-center pt-6 border-t border-[#E6DFD3] mt-6">
+                  <span className="font-black text-[#051F20] text-sm uppercase tracking-widest mb-2 sm:mb-0">TOTAL PEMBAYARAN</span>
+                  <span className="font-black text-3xl text-[#235347]">{formatRupiah(totalAkhir)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-6">
+              <Button onClick={unduhPDF} variant="outline" className="h-12 w-full border-[#E6DFD3] text-[#051F20] font-semibold rounded-lg flex items-center justify-center gap-2 hover:bg-[#FAF7F2]">
+                <FileDown className="w-5 h-5 text-blue-600" /> <span>Unduh PDF</span>
+              </Button>
+              <Button onClick={kirimWA} variant="outline" className="h-12 w-full border-[#E6DFD3] text-[#051F20] font-semibold rounded-lg flex items-center justify-center gap-2 hover:bg-[#FAF7F2]">
+                <MessageCircle className="w-5 h-5 text-emerald-600" /> <span>Kirim ke WA</span>
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <div id="nota-hidden-print" className="bg-white p-4 w-[280px] hidden text-black mx-auto absolute top-0 left-0 -z-50" style={{ fontFamily: 'monospace' }}>
+        <div className="text-center pb-4 border-b border-dashed border-gray-400">
+          <h1 className="text-xl font-bold">GLORYA MOTOR</h1>
+          <p className="text-[10px] mt-1">Jl. Raya Bengkel No. 123</p>
+        </div>
+        <div className="py-2 text-[10px] border-b border-dashed border-gray-400 space-y-1">
+          <div className="flex justify-between"><span>No</span><span>{tiket?.nomor_antrian}</span></div>
+          <div className="flex justify-between"><span>Tgl</span><span>{new Date(tiket?.waktu_lunas || Date.now()).toLocaleString('id-ID')}</span></div>
+          <div className="flex justify-between"><span>Plg</span><span>{tiket?.customers?.nama || 'Umum'}</span></div>
+          <div className="flex justify-between"><span>Mtr</span><span>{tiket?.plat_motor}</span></div>
+        </div>
+        <div className="py-2 border-b border-dashed border-gray-400">
+          {services?.map((svc: any, i: number) => (
+            <div key={`svc-${i}`} className="mb-2 text-[10px]">
+              <div>[Jasa] {svc.nama_jasa}</div>
+              <div className="flex justify-between">
+                <span>1 x {formatRupiah(Number(svc.harga_jasa))}</span>
+                <span>{formatRupiah(Number(svc.harga_jasa))}</span>
+              </div>
+            </div>
+          ))}
+          {spareparts?.map((part: any, i: number) => (
+            <div key={`part-${i}`} className="mb-2 text-[10px]">
+              <div>[Part] {part.barang?.nama}</div>
+              <div className="flex justify-between">
+                <span>{part.qty} x {formatRupiah(Number(part.harga_snapshot))}</span>
+                <span>{formatRupiah(part.qty * Number(part.harga_snapshot))}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="py-2 text-[10px] space-y-1">
+          <div className="flex justify-between font-bold"><span>Total</span><span>{formatRupiah(totalAkhir)}</span></div>
+          <div className="flex justify-between"><span>Bayar ({tiket?.metode_bayar})</span><span>{formatRupiah(totalAkhir)}</span></div>
+        </div>
+        <div className="text-center text-[10px] mt-4 pt-2 border-t border-dashed border-gray-400">
+          <p>Terima kasih atas kunjungannya!</p>
+          <p>Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.</p>
+        </div>
+      </div>
+
     </div>
   )
 }
