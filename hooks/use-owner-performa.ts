@@ -12,6 +12,7 @@ export interface PerformaTiket {
   merk_motor: string
   waktu_selesai: string
   tiket_jasa: JasaDetail[]
+  cc_motor?: number | null;
 }
 
 export function useOwnerPerforma(mekanikId: string, startDate: string, endDate: string) {
