@@ -174,7 +174,7 @@ export default function OwnerDashboardPage() {
                   <RechartsTooltip 
                     cursor={{ fill: '#f8fafc' }}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #E6DFD3', boxShadow: '0 1px 2px 0 rgb(0 0 0 / 0.05)', fontSize: '12px', fontWeight: 500 }}
-                    formatter={(value: number) => [formatRupiah(value), "Omzet"]}
+                    formatter={(value: any) => [formatRupiah(Number(value || 0)), "Omzet"]}
                   />
                   <Bar dataKey="total" fill="#235347" radius={[4, 4, 0, 0]} maxBarSize={45} />
                 </BarChart>
