@@ -92,9 +92,7 @@ export default function RiwayatPekerjaanMekanik() {
                           <div className="bg-white border border-[#E6DFD3] rounded-xl p-4 shadow-sm">
                             <div className="flex items-start gap-2">
                               <FileText className="w-4 h-4 text-[#8EB69B] mt-0.5 shrink-0" />
-                              <p className="text-sm text-[#051F20] font-medium leading-relaxed">
-                                "{item.saran_mekanik}"
-                              </p>
+                              <p className="text-sm text-[#051F20] font-medium leading-relaxed">&quot;{item.saran_mekanik}&quot;</p>
                             </div>
                             <div className="mt-4 pt-4 border-t border-[#E6DFD3]/50 flex flex-wrap gap-2">
                               {item.checklist_kendaraan && Object.entries(item.checklist_kendaraan).map(([key, val]) => (

@@ -239,7 +239,7 @@ export default function AuditShiftPage() {
               {selectedShift.catatan && (
                 <div className="bg-slate-50 border border-[#E6DFD3] p-4 rounded-xl">
                   <p className="text-xs font-semibold text-slate-500 uppercase mb-1.5">Catatan Kasir</p>
-                  <p className="text-sm text-[#051F20] italic">"{selectedShift.catatan}"</p>
+                  <p className="text-sm text-[#051F20] italic">&quot;{selectedShift.catatan}&quot;</p>
                 </div>
               )}
             </div>

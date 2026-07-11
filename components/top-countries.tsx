@@ -67,12 +67,12 @@ export function TopCountries() {
 							<TableRow className="hover:bg-transparent" key={row.code}>
 								<TableCell className="max-w-[220px] truncate pl-6 font-medium">
 									<span className="inline-flex max-w-full items-center gap-2">
-										<img
-											alt={`Flag of ${row.code}`}
-											className="h-3.5 w-5 shrink-0 rounded object-cover"
-											height={14}
-											src={flagUrl(row.code)}
-											width={20}
+										<img 
+										alt={`Flag of ${row.code}`}
+										className="h-3.5 w-5 shrink-0 rounded object-cover"
+										height={14}
+										src={flagUrl(row.code)}
+										width={20}
 										/>
 										<span className="min-w-0 truncate text-xs">
 											{regionNames.of(row.code) ?? row.code}
