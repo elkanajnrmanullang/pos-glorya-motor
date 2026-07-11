@@ -11,6 +11,7 @@ export interface CreateTiketPayload {
   tahun_motor?: number | null
   keluhan?: string | null
   kasir_id: string
+  kendaraan_id? : string | null
   customer_id: string
   sesi_id: string
   cabang_id?: string | null
