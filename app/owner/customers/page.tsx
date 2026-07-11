@@ -91,15 +91,18 @@ function CustomerDetailModal({ customerId, isOpen, onClose, customerName }: { cu
                   <p className="text-sm text-slate-500 bg-white p-4 rounded-xl border border-[#E6DFD3]">Belum ada kendaraan yang diregistrasikan.</p>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {detailData.kendaraan.map((mtr, idx) => (
-                      <div key={idx} className="bg-white p-4 rounded-xl border border-[#E6DFD3] flex items-center justify-between shadow-sm">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-[#051F20] text-sm">{mtr.master_motor?.merk} {mtr.master_motor?.model}</span>
-                          <span className="text-xs text-slate-500 mt-0.5">{mtr.master_motor?.cc ? `${mtr.master_motor.cc}cc` : 'CC tidak diketahui'}</span>
+                    {detailData.kendaraan.map((mtr: any, idx: number) => {
+                      const motor = Array.isArray(mtr.master_motor) ? mtr.master_motor[0] : mtr.master_motor;
+                      return (
+                        <div key={idx} className="bg-white p-4 rounded-xl border border-[#E6DFD3] flex items-center justify-between shadow-sm">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-[#051F20] text-sm">{motor?.merk} {motor?.model}</span>
+                            <span className="text-xs text-slate-500 mt-0.5">{motor?.cc ? `${motor.cc}cc` : 'CC tidak diketahui'}</span>
+                          </div>
+                          <span className="px-3 py-1.5 bg-[#E1EFE6] text-[#235347] font-semibold text-xs rounded-md">{mtr.plat_nomor}</span>
                         </div>
-                        <span className="px-3 py-1.5 bg-[#E1EFE6] text-[#235347] font-semibold text-xs rounded-md">{mtr.plat_nomor}</span>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
