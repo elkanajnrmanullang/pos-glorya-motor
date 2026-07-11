@@ -6,14 +6,12 @@ import { useRiwayatMekanik } from '@/hooks/use-riwayat-mekanik'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Search, Loader2, Wrench } from 'lucide-react'
+import { Search, Loader2, ClipboardList, FileText } from 'lucide-react'
 
-// COMPONENT_RIWAYAT_PEKERJAAN_MEKANIK
 export default function RiwayatPekerjaanMekanik() {
   const supabase = createClient()
   const [userId, setUserId] = useState<string | undefined>(undefined)
 
-  // GET_USER_SESSION
   useEffect(() => {
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -22,108 +20,96 @@ export default function RiwayatPekerjaanMekanik() {
     getUser()
   }, [supabase])
 
-  // FETCH_RIWAYAT_DATA
   const { riwayat, isLoading } = useRiwayatMekanik(userId)
   const [search, setSearch] = useState('')
 
-  // FILTER_DATA
   const filteredRiwayat = riwayat.filter(item => 
     item.plat_motor.toLowerCase().includes(search.toLowerCase()) ||
     (item.customers?.nama || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(val || 0)
-  }
-
-  // RENDER_UI
   return (
-    <div className="w-full space-y-6 max-w-5xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-[#051F20] tracking-tight">Riwayat Pekerjaan</h1>
-          <p className="text-slate-500 text-sm font-medium mt-1">Daftar motor yang telah Anda selesaikan.</p>
-        </div>
+    <div className="w-full space-y-8 max-w-5xl mx-auto pb-12">
+      <div>
+        <h1 className="text-3xl font-black text-[#051F20] tracking-tight">Riwayat Pengerjaan</h1>
+        <p className="text-[#163832] text-sm font-medium mt-1">Arsip dan rekam jejak kendaraan yang telah diselesaikan.</p>
       </div>
-
-      <Card className="border-[#DAF1DE] bg-white shadow-sm overflow-hidden">
-        <CardHeader className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <CardTitle className="text-sm font-bold flex items-center text-[#051F20]">
-            <Wrench className="w-5 h-5 mr-2 text-[#235347]" /> Histori Servis Anda
+      <Card className="border border-[#E6DFD3] bg-white shadow-sm overflow-hidden rounded-3xl">
+        <CardHeader className="border-b border-[#E6DFD3] pb-5 bg-[#FAF7F2] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center text-[#051F20]">
+            <ClipboardList className="w-4 h-4 mr-2 text-[#8EB69B]" /> Log Pekerjaan
           </CardTitle>
           <div className="relative w-full sm:w-80">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <Input 
-              placeholder="Cari plat motor atau pelanggan..." 
+              placeholder="Pencarian plat atau nama..." 
               value={search} 
               onChange={e => setSearch(e.target.value)} 
-              className="pl-9 h-10 text-sm bg-slate-50 border-[#E6DFD3] focus-visible:ring-[#235347]" 
+              className="pl-9 h-10 text-sm bg-white border-[#E6DFD3] focus-visible:ring-[#8EB69B] rounded-xl" 
             />
           </div>
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto w-full">
           {isLoading || !userId ? (
-            <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-[#235347]" /></div>
+            <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-[#8EB69B]" /></div>
           ) : (
-            <Table className="min-w-[700px]">
-              <TableHeader className="bg-slate-50/50">
-                <TableRow>
-                  <TableHead className="font-bold text-[#163832] pl-6 w-[180px]">Waktu Selesai</TableHead>
-                  <TableHead className="font-bold text-[#163832] w-[150px]">Kendaraan</TableHead>
-                  <TableHead className="font-bold text-[#163832] w-[150px]">Pelanggan</TableHead>
-                  <TableHead className="font-bold text-[#163832] pr-6">Rincian Jasa Dikerjakan</TableHead>
+            <Table className="min-w-[800px]">
+              <TableHeader className="bg-white">
+                <TableRow className="border-[#E6DFD3]">
+                  <TableHead className="font-bold text-[#163832] pl-6 py-4 w-[180px]">Diselesaikan</TableHead>
+                  <TableHead className="font-bold text-[#163832] py-4 w-[180px]">Unit Kendaraan</TableHead>
+                  <TableHead className="font-bold text-[#163832] py-4 w-[160px]">Pemilik</TableHead>
+                  <TableHead className="font-bold text-[#163832] py-4 pr-6">Detail Pelaporan</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredRiwayat.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-12 text-slate-500 font-medium">
-                      Tidak ada riwayat pekerjaan ditemukan.
+                    <TableCell colSpan={4} className="text-center py-16 text-slate-400 font-medium">
+                      Data riwayat tidak ditemukan dalam arsip.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredRiwayat.map((item) => {
-                    const totalJasa = item.tiket_jasa?.reduce((sum: number, j: any) => sum + Number(j.harga_jasa), 0) || 0
-                    return (
-                      <TableRow key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                        <TableCell className="pl-6 align-top pt-4">
-                          <div className="font-bold text-[#051F20] text-sm">
-                            {new Date(item.waktu_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </div>
-                          <div className="text-xs text-slate-500 font-medium mt-0.5">
-                            Pukul {new Date(item.waktu_selesai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </TableCell>
-                        <TableCell className="align-top pt-4">
-                          <div className="font-black text-[#051F20] text-base">{item.plat_motor}</div>
-                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mt-0.5">{item.merk_motor}</div>
-                        </TableCell>
-                        <TableCell className="align-top pt-4">
-                          <div className="font-semibold text-slate-700 text-sm">{item.customers?.nama || 'Umum'}</div>
-                        </TableCell>
-                        <TableCell className="align-top pt-4 pb-4 pr-6">
-                          {item.tiket_jasa && item.tiket_jasa.length > 0 ? (
-                            <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
-                              <ul className="space-y-1.5">
-                                {item.tiket_jasa.map((jasa: any, idx: number) => (
-                                  <li key={idx} className="text-sm flex justify-between gap-4 border-b border-slate-200/60 pb-1.5 last:border-0 last:pb-0">
-                                    <span className="text-slate-600 font-medium">• {jasa.nama_jasa}</span>
-                                    <span className="text-[#235347] font-bold">{formatRupiah(jasa.harga_jasa)}</span>
-                                  </li>
-                                ))}
-                                <li className="text-sm flex justify-between gap-4 pt-2 mt-2 border-t-2 border-slate-200">
-                                  <span className="text-slate-800 font-black text-xs uppercase tracking-wider">Subtotal Jasa</span>
-                                  <span className="text-emerald-700 font-black">{formatRupiah(totalJasa)}</span>
-                                </li>
-                              </ul>
+                  filteredRiwayat.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-[#FAF7F2] transition-colors border-[#E6DFD3]/50">
+                      <TableCell className="pl-6 align-top pt-5">
+                        <div className="font-bold text-[#051F20] text-sm">
+                          {new Date(item.waktu_selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </div>
+                        <div className="text-xs font-bold text-[#8EB69B] mt-1">
+                          {new Date(item.waktu_selesai).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB
+                        </div>
+                      </TableCell>
+                      <TableCell className="align-top pt-5">
+                        <div className="font-black text-[#051F20] text-base">{item.plat_motor}</div>
+                        <div className="text-[10px] font-bold text-[#235347] uppercase tracking-widest mt-1">{item.merk_motor}</div>
+                      </TableCell>
+                      <TableCell className="align-top pt-5">
+                        <div className="font-bold text-[#163832] text-sm">{item.customers?.nama || 'Non-Member'}</div>
+                      </TableCell>
+                      <TableCell className="align-top pt-5 pb-5 pr-6">
+                        {item.saran_mekanik ? (
+                          <div className="bg-white border border-[#E6DFD3] rounded-xl p-4 shadow-sm">
+                            <div className="flex items-start gap-2">
+                              <FileText className="w-4 h-4 text-[#8EB69B] mt-0.5 shrink-0" />
+                              <p className="text-sm text-[#051F20] font-medium leading-relaxed">
+                                "{item.saran_mekanik}"
+                              </p>
                             </div>
-                          ) : (
-                            <span className="text-xs italic text-slate-400">Tidak ada jasa, hanya ganti sparepart</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })
+                            <div className="mt-4 pt-4 border-t border-[#E6DFD3]/50 flex flex-wrap gap-2">
+                              {item.checklist_kendaraan && Object.entries(item.checklist_kendaraan).map(([key, val]) => (
+                                <span key={key} className={`text-[9px] font-black px-2 py-1 rounded-md uppercase tracking-widest ${val === 'Aman' ? 'bg-[#E1EFE6] text-[#235347]' : val === 'Ganti' ? 'bg-red-50 text-red-600 border border-red-100' : 'bg-amber-50 text-amber-600 border border-amber-100'}`}>
+                                  {key.replace('_', ' ')}: {val}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-medium text-slate-400">Tidak ada log tercatat.</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
             </Table>

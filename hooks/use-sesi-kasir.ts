@@ -24,21 +24,42 @@ export function useSesiKasir(kasirId: string | undefined) {
   })
 
   const bukaKasirMutation = useMutation({
-    mutationFn: async ({ modalAwal, cabangId }: { modalAwal: number, cabangId?: string }) => {
-      if (!kasirId) throw new Error('Kasir tidak teridentifikasi')
+    mutationFn: async ({ modalAwal }: { modalAwal: number }) => {
+      if (!kasirId) throw new Error('Kasir tidak teridentifikasi. Silakan login ulang.')
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, cabang_id')
+        .eq('id', kasirId)
+        .single()
+
+      if (profileError || !profile) {
+        throw new Error('Gagal memuat profil. Pastikan akun terdaftar di tabel profiles.')
+      }
+
+      if (profile.role !== 'kasir' && profile.role !== 'owner') {
+        throw new Error(`Akses ditolak. Role Anda adalah ${profile.role}.`)
+      }
+
+      if (!profile.cabang_id) {
+        throw new Error('Cabang ID kosong! Isi terlebih dahulu cabang_id Anda di Supabase (tabel profiles).')
+      }
 
       const { data, error } = await supabase
         .from('sesi_kasir')
         .insert({
           kasir_id: kasirId,
-          cabang_id: cabangId || null,
+          cabang_id: profile.cabang_id,
           modal_awal: modalAwal,
           status: 'aktif'
         })
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        if (error.code === '42501') throw new Error('Ditolak sistem keamanan (RLS). Pastikan Anda adalah kasir yang sah.')
+        throw new Error(`Gagal membuka sesi: ${error.message}`)
+      }
       return data
     },
     onSuccess: () => {

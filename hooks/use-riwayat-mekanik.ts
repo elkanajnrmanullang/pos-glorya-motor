@@ -1,3 +1,4 @@
+// HOOK_USE_RIWAYAT_MEKANIK
 import { useQuery } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
@@ -9,20 +10,18 @@ export interface TiketRiwayat {
   status: string
   waktu_masuk: string
   waktu_selesai: string
+  saran_mekanik: string
+  checklist_kendaraan: Record<string, string>
   customers?: {
     nama: string
   }
-  tiket_jasa?: {
-    nama_jasa: string
-    harga_jasa: number
-  }[]
 }
 
-// HOOK_USE_RIWAYAT_MEKANIK
+// MAIN_HOOK_FUNCTION
 export function useRiwayatMekanik(mekanikId: string | undefined) {
   const supabase = createClient()
 
-  // FETCH_DATA_RIWAYAT_MEKANIK
+  // FETCH_DATA_RIWAYAT
   const query = useQuery({
     queryKey: ['riwayat-mekanik', mekanikId],
     queryFn: async () => {
@@ -36,17 +35,16 @@ export function useRiwayatMekanik(mekanikId: string | undefined) {
           merk_motor, 
           status, 
           waktu_masuk,
-          waktu_selesai, 
-          customers (nama), 
-          tiket_jasa (nama_jasa, harga_jasa)
+          waktu_selesai,
+          saran_mekanik,
+          checklist_kendaraan,
+          customers (nama)
         `)
         .eq('mekanik_id', mekanikId)
         .in('status', ['selesai', 'lunas'])
         .order('waktu_selesai', { ascending: false })
 
       if (error) throw error
-      
-      // TYPE_CASTING_WORKAROUND_SUPABASE_JOIN
       return data as unknown as TiketRiwayat[]
     },
     enabled: !!mekanikId

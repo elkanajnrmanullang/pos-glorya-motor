@@ -1,7 +1,9 @@
 "use client"
 
 import { useState, useRef, useEffect } from 'react'
-import { useSearchCustomers, useCreateCustomer, Customer } from '@/hooks/use-customers'
+import { useCreateCustomer, Customer } from '@/hooks/use-customers'
+import { createClient } from '@/lib/supabase/client'
+import { useQuery } from '@tanstack/react-query'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -14,6 +16,7 @@ interface CustomerSelectProps {
 }
 
 export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectProps) {
+  const supabase = createClient()
   const [isOpen, setIsOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -22,7 +25,20 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
   const [newNama, setNewNama] = useState('')
   const [newPhone, setNewPhone] = useState('')
 
-  const { data: searchResults, isLoading } = useSearchCustomers(searchTerm)
+  // FETCH CUSTOMERS INLINE
+  const { data: searchResults, isLoading } = useQuery({
+    queryKey: ['customers', searchTerm],
+    queryFn: async () => {
+      let q = supabase.from('customers').select('*').order('created_at', { ascending: false }).limit(10)
+      if (searchTerm.length > 0) {
+        q = q.or(`nama.ilike.%${searchTerm}%,no_telp.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`)
+      }
+      const { data, error } = await q
+      if (error) throw error
+      return data as Customer[]
+    }
+  })
+
   const createCustomer = useCreateCustomer()
 
   useEffect(() => {
@@ -65,7 +81,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
       {selectedCustomer ? (
         <div className="flex items-center justify-between p-3 bg-[#E1EFE6]/40 border border-[#8EB69B] rounded-lg">
           <div>
-            <p className="text-sm font-bold text-[#051F20]">{selectedCustomer.nama}</p>
+            <p className="text-sm font-bold text-[#051F20]">{selectedCustomer.nama} <span className="text-[#8EB69B]">({selectedCustomer.id})</span></p>
             <p className="text-xs font-medium text-[#163832] mt-0.5">{selectedCustomer.no_telp}</p>
           </div>
           <Button 
@@ -82,21 +98,22 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8EB69B]" />
           <Input
             type="text"
-            placeholder="Cari nama atau no. HP (min. 2 huruf)..."
+            placeholder="Cari ID, Nama, atau No. HP..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value)
               setIsOpen(true)
             }}
             onFocus={() => setIsOpen(true)}
+            onClick={() => setIsOpen(true)}
             className="pl-9 border-[#8EB69B]/40 focus-visible:ring-[#235347] bg-white text-[#051F20]"
           />
 
-          {isOpen && searchTerm.length >= 2 && (
+          {isOpen && (
             <div className="absolute z-50 w-full mt-1 bg-white border border-[#E6DFD3] rounded-lg shadow-lg max-h-64 overflow-y-auto">
               {isLoading ? (
                 <div className="flex items-center justify-center p-4 text-sm text-[#8EB69B]">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Mencari...
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Memuat...
                 </div>
               ) : searchResults && searchResults.length > 0 ? (
                 <ul className="py-1">
@@ -111,7 +128,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
                       className="flex items-center justify-between px-4 py-2.5 hover:bg-[#FAF7F2] cursor-pointer border-b border-slate-50 last:border-0"
                     >
                       <div>
-                        <p className="text-sm font-bold text-[#051F20]">{cust.nama}</p>
+                        <p className="text-sm font-bold text-[#051F20]">{cust.nama} <span className="text-xs text-[#8EB69B]">({cust.id})</span></p>
                         <p className="text-xs text-[#163832]">{cust.no_telp}</p>
                       </div>
                       <Check className="w-4 h-4 text-[#235347] opacity-0 hover:opacity-100" />
@@ -144,9 +161,7 @@ export function CustomerSelect({ onSelect, selectedCustomer }: CustomerSelectPro
         <DialogContent className="sm:max-w-md bg-[#FAF7F2] border-[#E6DFD3]">
           <DialogHeader>
             <DialogTitle className="text-xl text-[#051F20]">Daftar Customer Baru</DialogTitle>
-            <DialogDescription className="hidden">
-              Isi form berikut untuk menambahkan data pelanggan baru ke sistem.
-            </DialogDescription>
+            <DialogDescription className="hidden">Isi form berikut.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCreateNewCustomer} className="space-y-4 mt-2">
             <div className="space-y-2">

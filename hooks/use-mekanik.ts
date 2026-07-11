@@ -1,128 +1,86 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
+// INTERFACE_TIKET_MEKANIK
+export interface TiketMekanik {
+  id: string
+  nomor_antrian: string
+  plat_motor: string
+  merk_motor: string
+  keluhan: string
+  status: string
+  waktu_masuk: string
+  mekanik_id: string | null
+}
+
+// INTERFACE_PAYLOAD_SELESAI
+export interface SelesaiPayload {
+  id: string
+  checklist: Record<string, string>
+  saran: string
+}
+
+// MAIN_HOOK_FUNCTION
 export function useMekanik() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
-  // Ambil profil mekanik saat ini
+  // FETCH_USER_PROFILE
   const { data: userProfile } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: ['mekanik-profile'],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return null
-      return user
+      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      return data
     }
   })
 
-  // Ambil semua tiket
-  const queryTiket = useQuery({
-    queryKey: ['tiket-mekanik'],
+  // FETCH_TIKET_AKTIF
+  const { data: tiketSemua = [], isLoading: isLoadingTiket } = useQuery({
+    queryKey: ['tiket-bengkel-aktif'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tiket_servis')
-        .select(`
-          *,
-          tiket_items(*, barang(nama)),
-          tiket_jasa(*)
-        `)
-        .in('status', ['menunggu', 'dikerjakan', 'selesai', 'lunas'])
+        .select('*')
+        .in('status', ['menunggu', 'dikerjakan'])
         .order('waktu_masuk', { ascending: true })
-
       if (error) throw error
-      return data
+      return data as TiketMekanik[]
     },
-    refetchInterval: 5000 // Polling ringan tiap 5 detik sebagai pelapis realtime
+    refetchInterval: 3000
   })
 
-  // Ambil Katalog Barang 
-  const queryBarang = useQuery({
-    queryKey: ['katalog-tersedia'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('barang').select('*').eq('aktif', true)
-      if (error) throw error
-      return data.filter(b => (b.stok_fisik - b.stok_reserved) > 0)
-    }
-  })
-
-  // Ambil Katalog Jasa
-  const queryJasa = useQuery({
-    queryKey: ['katalog-jasa'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('katalog_jasa').select('*').eq('aktif', true).order('nama_jasa')
-      if (error) throw error
-      return data
-    }
-  })
-
-  // ================= MUTASI AKSI MEKANIK =================
-
-  const klaimTiket = useMutation({
+  // MUTATION_KLAIM_TIKET (Menggunakan RPC)
+  const klaimTiketMut = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc('klaim_tiket_mekanik', { p_tiket_id: id })
+      const { error } = await supabase.rpc('klaim_tiket_mekanik', { 
+        p_tiket_id: id 
+      })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tiket-mekanik'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tiket-bengkel-aktif'] })
   })
 
-  const selesaiTiket = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc('selesai_tiket_mekanik', { p_tiket_id: id })
+  // MUTATION_SELESAI_TIKET (Menggunakan RPC)
+  const selesaiTiketMut = useMutation({
+    mutationFn: async (payload: SelesaiPayload) => {
+      const { error } = await supabase.rpc('selesai_tiket_mekanik', {
+        p_tiket_id: payload.id,
+        p_checklist: payload.checklist,
+        p_saran: payload.saran
+      })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tiket-mekanik'] })
-  })
-
-  const tambahItem = useMutation({
-    mutationFn: async ({ tiketId, barangId, qty, harga }: any) => {
-      const { error } = await supabase.rpc('tambah_item_tiket', { p_tiket_id: tiketId, p_barang_id: barangId, p_qty: qty, p_harga: harga })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tiket-mekanik'] })
-      queryClient.invalidateQueries({ queryKey: ['katalog-tersedia'] })
-    }
-  })
-
-  const hapusItem = useMutation({
-    mutationFn: async (itemId: string) => {
-      const { error } = await supabase.rpc('hapus_item_tiket', { p_item_id: itemId })
-      if (error) throw error
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tiket-mekanik'] })
-      queryClient.invalidateQueries({ queryKey: ['katalog-tersedia'] })
-    }
-  })
-
-  const tambahJasa = useMutation({
-    mutationFn: async ({ tiketId, namaJasa, harga }: any) => {
-      const { error } = await supabase.rpc('tambah_jasa_tiket', { p_tiket_id: tiketId, p_nama_jasa: namaJasa, p_harga: harga })
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tiket-mekanik'] })
-  })
-
-  const hapusJasa = useMutation({
-    mutationFn: async (jasaId: string) => {
-      const { error } = await supabase.rpc('hapus_jasa_tiket', { p_jasa_id: jasaId })
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tiket-mekanik'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tiket-bengkel-aktif'] })
   })
 
   return {
     userProfile,
-    tiketSemua: queryTiket.data || [],
-    isLoadingTiket: queryTiket.isLoading,
-    barang: queryBarang.data || [],
-    jasa: queryJasa.data || [],
-    klaimTiket: klaimTiket.mutateAsync,
-    selesaiTiket: selesaiTiket.mutateAsync,
-    tambahItem: tambahItem.mutateAsync,
-    hapusItem: hapusItem.mutateAsync,
-    tambahJasa: tambahJasa.mutateAsync,
-    hapusJasa: hapusJasa.mutateAsync,
-    isProcessing: klaimTiket.isPending || selesaiTiket.isPending || tambahItem.isPending || hapusItem.isPending || tambahJasa.isPending || hapusJasa.isPending
+    tiketSemua,
+    isLoadingTiket,
+    klaimTiket: klaimTiketMut.mutateAsync,
+    selesaiTiket: selesaiTiketMut.mutateAsync,
+    isProcessing: klaimTiketMut.isPending || selesaiTiketMut.isPending
   }
 }

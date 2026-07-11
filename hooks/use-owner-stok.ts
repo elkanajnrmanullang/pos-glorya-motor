@@ -1,75 +1,66 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-// INTERFACE DATA BARANG
-export interface BarangOwner {
-  id: string
+export type BarangOwner = {
+  sku: string
   nama: string
-  barcode: string
+  barcode?: string
   harga_beli: number
   harga_jual: number
   stok_fisik: number
-  stok_reserved: number
-  stok_tersedia: number
   stok_minimum: number
+  stok_tersedia?: number
   satuan: string
-  aktif: boolean
 }
 
 export function useOwnerStok() {
   const supabase = createClient()
   const queryClient = useQueryClient()
 
-  // 1. FETCH DATA STOK
-  const query = useQuery({
-    queryKey: ['owner-pantauan-stok'],
+  const { data: barang = [], isLoading } = useQuery({
+    queryKey: ['owner-stok-v3'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('barang')
-        .select('*')
-        .eq('aktif', true)
-        .order('nama', { ascending: true })
-
+      const { data, error } = await supabase.from('barang').select('*').order('nama', { ascending: true })
       if (error) throw error
-      return data as BarangOwner[]
+      return data.map(d => ({
+        ...d,
+        stok_tersedia: d.stok_tersedia ?? d.stok_fisik
+      })) as BarangOwner[]
     }
   })
 
-  // 2. MUTASI TAMBAH BARANG
-  const tambahBarang = useMutation({
-    mutationFn: async (newBarang: any) => {
-      const { error } = await supabase.from('barang').insert([newBarang])
+  const tambahMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const { error } = await supabase.from('barang').insert(payload)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-pantauan-stok'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-stok-v3'] })
   })
 
-  // 3. MUTASI UBAH BARANG
-  const updateBarang = useMutation({
-    mutationFn: async (updatedData: any) => {
-      const { id, ...payload } = updatedData
-      const { error } = await supabase.from('barang').update(payload).eq('id', id)
+  const updateMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const { sku } = payload
+      if (!sku) throw new Error("Sistem mendeteksi data usang. Harap refresh halaman.")
+        
+      const { error } = await supabase.from('barang').upsert(payload, { onConflict: 'sku' })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-pantauan-stok'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-stok-v3'] })
   })
 
-  // 4. MUTASI HAPUS BARANG
-  const hapusBarang = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('barang').delete().eq('id', id)
+  const hapusMutation = useMutation({
+    mutationFn: async (sku: string) => {
+      if (!sku) throw new Error("SKU tidak ditemukan untuk dihapus.")
+      const { error } = await supabase.from('barang').delete().eq('sku', sku)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-pantauan-stok'] })
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['owner-stok-v3'] })
   })
 
-  const barang = query.data || []
-
-  // KALKULASI TOTAL ASET & POTENSI OMZET
-  const totalAsetModal = barang.reduce((sum, item) => sum + (item.stok_fisik * item.harga_beli), 0)
-  const potensiOmzet = barang.reduce((sum, item) => sum + (item.stok_fisik * item.harga_jual), 0)
+  const totalAsetModal = barang.reduce((acc, curr) => acc + (curr.stok_fisik * curr.harga_beli), 0)
+  const potensiOmzet = barang.reduce((acc, curr) => acc + (curr.stok_fisik * curr.harga_jual), 0)
   const estimasiLabaKotor = potensiOmzet - totalAsetModal
-  const lowStockCount = barang.filter(b => b.stok_tersedia <= b.stok_minimum).length
+  const lowStockCount = barang.filter(b => (b.stok_tersedia ?? b.stok_fisik) <= b.stok_minimum).length
 
   return {
     barang,
@@ -77,10 +68,10 @@ export function useOwnerStok() {
     potensiOmzet,
     estimasiLabaKotor,
     lowStockCount,
-    isLoading: query.isLoading,
-    tambahBarang: tambahBarang.mutateAsync,
-    updateBarang: updateBarang.mutateAsync,
-    hapusBarang: hapusBarang.mutateAsync,
-    isProcessing: tambahBarang.isPending || updateBarang.isPending || hapusBarang.isPending
+    isLoading,
+    tambahBarang: tambahMutation.mutateAsync,
+    updateBarang: updateMutation.mutateAsync,
+    hapusBarang: hapusMutation.mutateAsync,
+    isProcessing: tambahMutation.isPending || updateMutation.isPending || hapusMutation.isPending
   }
 }
